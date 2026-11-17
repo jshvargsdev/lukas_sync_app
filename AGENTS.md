@@ -12,9 +12,9 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
 |---|---|
 | Dependencias | `flutter pub get` |
 | Verificación (obligatoria antes de commit) | `flutter analyze && flutter test` |
-| Correr en el teléfono | `flutter run` |
-| APK para distribuir | `flutter build apk --release --split-per-abi` |
-| Publicar versión | Ver README > *Publicar una versión*. Crear el release es publicar: mostrar las notas y pedir OK antes. |
+| Correr en el teléfono | `flutter run --dart-define-from-file=config/prod.json` |
+| APK para distribuir | `scripts/build_release.sh` (nunca `flutter build` a secas: saldría sin URL de la API) |
+| Publicar versión | Ver README > *Publicar una versión*, usando `gh-personal` en vez de `gh`. Crear el release es publicar: mostrar las notas y pedir OK antes. |
 
 - `adb` está en `~/Android/Sdk/platform-tools/adb`.
 - El JDK es el de Android Studio (Java 25): Gradle debe ser 9.1+.
@@ -26,6 +26,9 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
 
 - **API**: `tasas-api` (repo aparte). El contrato está en `docs/api-v1.md`; si
   cambia, se actualiza ahí primero. Sin token: nunca meter secretos en el APK.
+- **Nada sensible en el repo (es público)**: ni llaves, ni claves, ni URLs de
+  servicios, ni detalles de infraestructura. La URL de la API vive en
+  `config/prod.json` (ignorado por git); en el repo solo `config/example.json`.
 - **Datos guardados de los usuarios**: no cambiar las claves de
   `SharedPreferences` (`@lukas_multi_rates`, `@lukas_theme_mode`,
   `@lukas_rates_cache`, …) ni su formato sin una lectura compatible con el
@@ -35,7 +38,7 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
   (`vX.Y.Z`) sin actualizar `lib/domain/app_release.dart`. El repo es público.
   Las notas del release van en texto plano (la app no interpreta Markdown).
 - **Firma**: el release se firma con la llave de `android/key.properties`
-  (keystore en `~/Personal/.keys/`, fuera del repo). Nunca commitear ni
+  (el keystore está fuera del repo; su ruta está en ese archivo). Nunca commitear ni
   regenerar la llave: con otra llave las actualizaciones no se instalan encima.
 - **Dinero y tasas**: las tasas se guardan y calculan sin redondear; solo se
   redondea al mostrar (`formatVes` para montos, `formatRate` para tasas). Usar

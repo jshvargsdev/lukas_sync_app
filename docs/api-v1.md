@@ -3,16 +3,17 @@
 Contrato que espera Lukas Sync 2.0 de la API nueva que reemplaza a
 `tasas-sync-api`. Estado: **cerrado** (2026-11-17), implementado y en producción.
 
-- URL base: `https://tasas-api-liart.vercel.app`
+- URL base: no se publica aquí. Está en `config/prod.json` (fuera de git) y en
+  la configuración del proyecto de la API.
 - Código: repo `jshvargsdev/tasas-api` (su README explica el funcionamiento interno)
-- Compilar la app: `--dart-define=RATES_API_BASE_URL=https://tasas-api-liart.vercel.app`
+- Compilar la app: `--dart-define-from-file=config/prod.json` (ver README)
 
 ## Decisiones tomadas
 
 | Tema | Decisión |
 |---|---|
-| Hosting | Vercel, plan gratuito. Región `gru1` (São Paulo): Binance P2P bloquea IPs de EE. UU. |
-| Base de datos | Postgres en Neon (Vercel Marketplace, plan gratuito, `sa-east-1`) |
+| Hosting | Vercel, plan gratuito, en una región de Sudamérica: Binance P2P bloquea IPs de EE. UU. |
+| Base de datos | Postgres (plan gratuito) |
 | BCV | Leído directo de bcv.org.ve, sin APIs de terceros. Se guarda en BD por **fecha valor**, sin redondear |
 | USDT | Binance P2P, lado compra, Pago Móvil, **solo comerciantes verificados**. **Promedio de los primeros 10 anuncios**; si vienen menos de 10, no hay tasa (`usdt: null`). No se guarda; se calcula al vuelo con caché de CDN de 5 min |
 | Correcciones del BCV | Si el BCV publica otros valores para una fecha valor ya guardada, se actualiza y lo anterior queda registrado en la BD |
@@ -110,8 +111,9 @@ Cualquier respuesta que no sea 200 lleva el mensaje en español:
 
 ## Lo que hace la app con esto
 
-- `RateSource` nuevo (`V1RateSource`) que lee `/v1/rates/latest`. Sin token;
-  la URL base va por `--dart-define`.
+- `V1RatesApi` (`lib/services/v1_rates_api.dart`) lee `/v1/rates/latest` y
+  `/v1/rates/bcv/history`, sin token. La URL base se pasa al compilar con
+  `--dart-define-from-file=config/prod.json`.
+- La tarea del widget en segundo plano usa el mismo cliente.
 - Pantalla **Historial**: un card por publicación con dólar y euro en
   columnas, carga al bajar y un calendario para saltar a una fecha.
-- Se elimina `.env` como asset del APK.

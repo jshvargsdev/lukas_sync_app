@@ -34,22 +34,25 @@ de iOS existe pero no se ha probado, y el widget es solo para Android.
 
 ## Requisitos
 
-- Flutter 3.44 (Dart `^3.11.5`). En esta máquina está en `~/fvm/default/bin`.
+- Flutter 3.44 (Dart `^3.11.5`).
 - Para Android: Android SDK y JDK (el de Android Studio sirve).
 
 ## Ejecución
 
 ```bash
 flutter pub get
-flutter run
 ```
 
-La app usa por defecto la API de producción
-(`https://tasas-api-liart.vercel.app`). Para apuntar a otra:
+La URL de la API no está en el repo. Crea `config/prod.json` (ignorado por
+git) a partir del ejemplo y complétalo:
 
 ```bash
-flutter run --dart-define=RATES_API_BASE_URL=http://192.168.1.10:3000
+cp config/example.json config/prod.json
+flutter run --dart-define-from-file=config/prod.json
 ```
+
+Sin ese archivo la app compila, pero muestra "La app no tiene configurado el
+servicio de tasas".
 
 ## Verificación
 
@@ -61,12 +64,15 @@ flutter test
 ## Build de producción
 
 ```bash
-flutter build apk --release --split-per-abi
+scripts/build_release.sh
 ```
 
-Genera un APK por arquitectura en `build/app/outputs/flutter-apk/`. Para casi
-todos los teléfonos actuales sirve `app-arm64-v8a-release.apk`. Sin
-`--split-per-abi` se genera un único APK universal, unas tres veces más pesado.
+Verifica que existan `config/prod.json` y `android/key.properties` (sin ellos
+la app no tendría tasas o no se podría actualizar encima) y corre
+`flutter build apk --release --split-per-abi`. Genera un APK por arquitectura
+en `build/app/outputs/flutter-apk/`; para casi todos los teléfonos actuales
+sirve `app-arm64-v8a-release.apk`. No uses `flutter build` a secas: el APK
+saldría sin la URL de la API.
 
 ## Publicar una versión
 
@@ -77,15 +83,14 @@ La app busca versiones nuevas en los
 1. Sube `version` en `pubspec.yaml` (p. ej. `2.1.0+3` → `2.2.0+4`; el número
    después de `+` siempre debe subir).
 2. `flutter analyze && flutter test`.
-3. `flutter build apk --release --split-per-abi` (con `android/key.properties`
-   presente: si se firma con otra llave, la actualización no se instala).
+3. `scripts/build_release.sh`.
 4. Crea el release con tag `v<versión>`, los tres APK con su nombre original
    (`app-<abi>-release.apk`) y las notas en español **en texto plano** (sin
    Markdown: la app las muestra tal cual, así que `**` o `*` se verían). Para
    listas usa `•`:
 
    ```bash
-   gh-personal release create v2.2.0 \
+   gh release create v2.2.0 \
      build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
      build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
      build/app/outputs/flutter-apk/app-x86_64-release.apk \
@@ -123,15 +128,18 @@ apksigner verify --print-certs build/app/outputs/flutter-apk/app-arm64-v8a-relea
 lib/
 ├── main.dart          # Arranque, tema, localización y dependencias globales
 ├── constants/         # Íconos/emojis para tasas personalizadas
-├── domain/            # Lógica pura: conversión, formatos, lista de monedas
+├── domain/            # Lógica pura: conversión, formatos, versiones/releases
 ├── models/            # Rates, CustomRate, BcvPublication
-├── services/          # API v1, RatesController, almacenamiento, widget
+├── services/          # API v1, tasas, almacenamiento, widget, actualizador
 ├── screens/           # Home e Historial
 ├── theme/             # Paleta clara/oscura y tema (AppPalette)
-└── widgets/           # Teclado, filas de moneda, formulario de tasa, etc.
+└── widgets/           # Teclado, filas, formulario de tasa, Ajustes, actualización
 android/app/src/main/
+├── kotlin/.../MainActivity.kt          # Canal nativo del actualizador (instalar APK)
 ├── kotlin/.../RatesWidgetProvider.kt   # Widget de pantalla de inicio
 └── res/layout/rates_widget.xml         # Diseño del widget
+config/example.json    # Plantilla de config/prod.json (URL de la API, fuera de git)
+scripts/build_release.sh  # Build de release con las verificaciones previas
 docs/api-v1.md         # Contrato con tasas-api
 ```
 

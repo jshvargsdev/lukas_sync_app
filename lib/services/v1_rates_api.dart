@@ -8,12 +8,9 @@ import '../models/bcv_publication.dart';
 import '../models/rates.dart';
 import 'rate_source.dart';
 
-/// URL base de la API v1 (ver docs/api-v1.md). Por defecto la de producción;
-/// se puede cambiar al compilar con `--dart-define=RATES_API_BASE_URL=...`.
-const String kRatesApiBaseUrl = String.fromEnvironment(
-  'RATES_API_BASE_URL',
-  defaultValue: 'https://tasas-api-liart.vercel.app',
-);
+/// URL base de la API v1 (ver docs/api-v1.md). No está en el repo: se pasa
+/// al compilar con `--dart-define-from-file=config/prod.json` (ver README).
+const String kRatesApiBaseUrl = String.fromEnvironment('RATES_API_BASE_URL');
 
 /// Historial de publicaciones del BCV.
 abstract class RateHistorySource {
@@ -67,6 +64,11 @@ class V1RatesApi implements RateSource, RateHistorySource {
   }
 
   Future<Map<String, dynamic>> _getJson(Uri uri) async {
+    if (!_base.hasScheme) {
+      throw const RateFetchException(
+        'La app no tiene configurado el servicio de tasas.',
+      );
+    }
     final http.Response response;
     try {
       response = await _client

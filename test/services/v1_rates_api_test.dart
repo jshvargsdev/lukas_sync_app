@@ -106,6 +106,25 @@ void main() {
       );
     });
 
+    test(
+      'sin URL configurada da un mensaje claro sin llamar a la red',
+      () async {
+        var called = false;
+        final api = V1RatesApi(
+          baseUrl: '',
+          client: MockClient((_) async {
+            called = true;
+            return http.Response('{}', 200);
+          }),
+        );
+        await expectLater(
+          api.fetchRates(),
+          throwsRateError('La app no tiene configurado el servicio de tasas.'),
+        );
+        expect(called, isFalse);
+      },
+    );
+
     test('sin conexión', () async {
       final api = V1RatesApi(
         baseUrl: 'https://api.test',
