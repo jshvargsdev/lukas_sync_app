@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../constants/emojis.dart';
+import '../domain/converter.dart';
 import '../models/custom_rate.dart';
+import '../models/rates.dart';
+import '../theme/app_theme.dart';
 
 class AddRateModalResult {
   final String name;
@@ -25,20 +27,13 @@ Future<void> showAddRateModal({
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black54,
+    useSafeArea: true,
     builder: (ctx) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(ctx).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: _AddRateModalContent(
         initialData: initialData,
-        onSave: (r) {
-          onSave(r);
-        },
-        onDelete: () {
-          onDelete();
-        },
+        onSave: onSave,
+        onDelete: onDelete,
       ),
     ),
   );
@@ -60,30 +55,22 @@ class _AddRateModalContent extends StatefulWidget {
 }
 
 class _AddRateModalContentState extends State<_AddRateModalContent> {
-  late TextEditingController _nameController;
-  late TextEditingController _valueController;
+  final _nameController = TextEditingController();
+  final _valueController = TextEditingController();
   String _icon = '🇺🇸';
   String _rawValue = '0';
-  bool _dropdownOpen = false;
-
-  static final NumberFormat _veFormat = NumberFormat.decimalPatternDigits(
-    locale: 'es_VE',
-    decimalDigits: 2,
-  );
+  String? _error;
 
   bool get _isEditing => widget.initialData != null;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _valueController = TextEditingController();
-
     final initial = widget.initialData;
     if (initial != null) {
       _nameController.text = initial.name;
       _icon = initial.icon;
-      final cents = (double.tryParse(initial.value) ?? 0) * 100;
+      final cents = Rates.parseRate(initial.value) * 100;
       _rawValue = cents.round().toString();
     }
     _valueController.text = _displayValue;
@@ -98,405 +85,240 @@ class _AddRateModalContentState extends State<_AddRateModalContent> {
     super.dispose();
   }
 
-  double get _numericValue => (int.tryParse(_rawValue) ?? 0) / 100;
+  double get _numericValue => centsInputToAmount(_rawValue);
 
-  String get _displayValue => _veFormat.format(_numericValue);
+  String get _displayValue => formatVes(_numericValue);
 
+  /// El campo se escribe en centavos y se reformatea a 1.234,56 al vuelo.
   void _handleValueChanged() {
     final digitsOnly = _valueController.text.replaceAll(RegExp(r'\D'), '');
-    final next = digitsOnly.isEmpty ? '0' : digitsOnly;
-    if (next == _rawValue) {
-      final desired = _displayValue;
-      if (_valueController.text != desired) {
-        _valueController.value = TextEditingValue(
-          text: desired,
-          selection: TextSelection.collapsed(offset: desired.length),
-        );
-      }
-      return;
-    }
-    setState(() {
-      _rawValue = next;
-    });
+    var next = digitsOnly.isEmpty ? '0' : digitsOnly;
+    next = next.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+    if (next.length > 12) next = _rawValue;
+    if (next != _rawValue) setState(() => _rawValue = next);
     final desired = _displayValue;
-    _valueController.value = TextEditingValue(
-      text: desired,
-      selection: TextSelection.collapsed(offset: desired.length),
-    );
+    if (_valueController.text != desired) {
+      _valueController.value = TextEditingValue(
+        text: desired,
+        selection: TextSelection.collapsed(offset: desired.length),
+      );
+    }
   }
 
   void _handleSave() {
     final name = _nameController.text.trim();
-    if (name.isEmpty || _numericValue <= 0) return;
-    widget.onSave(AddRateModalResult(
-      name: name,
-      value: _numericValue.toString(),
-      icon: _icon,
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color sheetBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final Color fieldBg =
-        isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
-    final Color fieldBorder =
-        isDark ? const Color(0xFF475569) : const Color(0xFFE2E8F0);
-    final Color labelColor =
-        isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
-    final Color textColor = isDark ? Colors.white : const Color(0xFF1E293B);
-    final Color subTextColor =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
-    return GestureDetector(
-      onVerticalDragEnd: (details) {
-        if ((details.primaryVelocity ?? 0) > 200) {
-          Navigator.of(context).maybePop();
-        }
-      },
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: sheetBg,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 56,
-                    height: 5,
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF475569)
-                          : const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isEditing
-                                ? 'Editar Tasa'
-                                : 'Agregar Nueva Tasa',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _isEditing
-                                ? 'Actualiza el valor de tu referencia de mercado.'
-                                : 'Personaliza tu propia referencia de mercado.',
-                            maxLines: 2,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: subTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_isEditing) ...[
-                      const SizedBox(width: 16),
-                      InkWell(
-                        onTap: widget.onDelete,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0x4D7F1D1D)
-                                : const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark
-                                  ? const Color(0xFF991B1B)
-                                  : const Color(0xFFFEE2E2),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                            color: Color(0xFFEF4444),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _Label(text: 'Nombre de la Moneda', color: labelColor),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _nameController,
-                  onTap: () => setState(() => _dropdownOpen = false),
-                  style: TextStyle(color: textColor),
-                  decoration: _inputDecoration(
-                    fieldBg: fieldBg,
-                    fieldBorder: fieldBorder,
-                    hint: 'Ej. Dólar Paralelo',
-                    hintColor: const Color(0xFF94A3B8),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _Label(text: 'Valor (VES)', color: labelColor),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: fieldBg,
-                    border: Border.all(color: fieldBorder),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Bs',
-                        style: TextStyle(
-                          color: subTextColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _valueController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          onTap: () => setState(() => _dropdownOpen = false),
-                          style: TextStyle(fontSize: 18, color: textColor),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isCollapsed: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 14),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _Label(text: 'Seleccionar Ícono/Bandera', color: labelColor),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    setState(() => _dropdownOpen = !_dropdownOpen);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: fieldBg,
-                      border: Border.all(
-                        color: _dropdownOpen
-                            ? const Color(0xFF16A34A)
-                            : fieldBorder,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(_icon, style: const TextStyle(fontSize: 22)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Cambiar ícono...',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: subTextColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          _dropdownOpen
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
-                          size: 18,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_dropdownOpen) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 160,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: fieldBg,
-                      border: Border.all(color: fieldBorder),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: kAllEmojis.map((e) {
-                          final selected = e == _icon;
-                          return InkWell(
-                            onTap: () => setState(() {
-                              _icon = e;
-                              _dropdownOpen = false;
-                            }),
-                            borderRadius: BorderRadius.circular(999),
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: selected
-                                    ? (isDark
-                                        ? const Color(0x6614532D)
-                                        : const Color(0xFFDCFCE7))
-                                    : (isDark
-                                        ? const Color(0xFF334155)
-                                        : Colors.white),
-                                border: Border.all(
-                                  width: 2,
-                                  color: selected
-                                      ? (isDark
-                                          ? const Color(0xFF22C55E)
-                                          : const Color(0xFF16A34A))
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: Text(
-                                e,
-                                style: const TextStyle(fontSize: 22),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _handleSave,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      _isEditing ? 'Actualizar Tasa' : 'Guardar Tasa',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark
-                          ? const Color(0xFF334155)
-                          : const Color(0xFFF1F5F9),
-                      foregroundColor: isDark
-                          ? const Color(0xFFCBD5E1)
-                          : const Color(0xFF475569),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Cancelar',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+    if (name.isEmpty) {
+      setState(() => _error = 'Escribe un nombre para la tasa.');
+      return;
+    }
+    if (_numericValue <= 0) {
+      setState(() => _error = 'El valor debe ser mayor que 0.');
+      return;
+    }
+    widget.onSave(
+      AddRateModalResult(
+        name: name,
+        value: _numericValue.toString(),
+        icon: _icon,
       ),
     );
   }
 
-  InputDecoration _inputDecoration({
-    required Color fieldBg,
-    required Color fieldBorder,
-    required String hint,
-    required Color hintColor,
-  }) {
-    OutlineInputBorder border(Color color) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: color),
-        );
-    return InputDecoration(
-      filled: true,
-      fillColor: fieldBg,
-      hintText: hint,
-      hintStyle: TextStyle(color: hintColor),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: border(fieldBorder),
-      enabledBorder: border(fieldBorder),
-      focusedBorder: border(const Color(0xFF16A34A)),
+  Future<void> _confirmDelete() async {
+    final name = widget.initialData?.name ?? '';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar tasa'),
+        content: Text('¿Seguro que quieres eliminar "$name"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: ctx.palette.danger),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) widget.onDelete();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isEditing ? 'Editar tasa' : 'Nueva tasa',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: p.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Define cuántos bolívares vale 1 unidad.',
+                      style: TextStyle(fontSize: 14, color: p.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isEditing)
+                IconButton.filledTonal(
+                  tooltip: 'Eliminar',
+                  onPressed: _confirmDelete,
+                  style: IconButton.styleFrom(
+                    backgroundColor: p.dangerSoft,
+                    foregroundColor: p.danger,
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _Label('Nombre'),
+          TextField(
+            controller: _nameController,
+            textCapitalization: TextCapitalization.sentences,
+            maxLength: 30,
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            style: TextStyle(color: p.textPrimary, fontSize: 16),
+            decoration: const InputDecoration(
+              hintText: 'Ej. Dólar paralelo',
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 16),
+          _Label('Valor en bolívares'),
+          TextField(
+            controller: _valueController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            style: TextStyle(
+              color: p.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              fontFeatures: kTabularFigures,
+            ),
+            decoration: InputDecoration(
+              prefixIcon: Padding(
+                padding: const EdgeInsets.only(left: 16, right: 8),
+                child: Text(
+                  'Bs',
+                  style: TextStyle(
+                    color: p.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 0),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _Label('Ícono'),
+          Container(
+            height: 132,
+            decoration: BoxDecoration(
+              color: p.surfaceMuted,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: GridView.builder(
+              padding: const EdgeInsets.all(8),
+              scrollDirection: Axis.horizontal,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+              ),
+              itemCount: kAllEmojis.length,
+              itemBuilder: (context, i) {
+                final e = kAllEmojis[i];
+                final selected = e == _icon;
+                return InkWell(
+                  onTap: () => setState(() => _icon = e),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: selected ? p.accentSoft : p.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(
+                        width: 2,
+                        color: selected ? p.accent : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(e, style: const TextStyle(fontSize: 24)),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: TextStyle(color: p.danger, fontWeight: FontWeight.w600),
+            ),
+          ],
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _handleSave,
+            child: Text(_isEditing ? 'Guardar cambios' : 'Agregar tasa'),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: TextButton.styleFrom(
+              foregroundColor: p.textSecondary,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _Label extends StatelessWidget {
   final String text;
-  final Color color;
-  const _Label({required this.text, required this.color});
+  const _Label(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: color,
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: context.palette.textSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

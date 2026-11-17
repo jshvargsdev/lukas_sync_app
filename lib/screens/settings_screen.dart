@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
 import '../services/app_settings.dart';
+import '../theme/app_theme.dart';
 import 'reorder_rates_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -11,121 +12,87 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
-    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-
+    final p = context.palette;
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          'Ajustes',
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
-        ),
-        iconTheme: IconThemeData(color: textColor),
-      ),
+      appBar: AppBar(title: const Text('Ajustes')),
       body: AnimatedBuilder(
         animation: Listenable.merge([appSettings, customRatesStore]),
         builder: (context, _) {
           return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
-              _SectionHeader(text: 'Apariencia', isDark: isDark),
-              RadioGroup<ThemeMode>(
-                groupValue: appSettings.themeMode,
-                onChanged: (v) {
-                  if (v != null) appSettings.setThemeMode(v);
-                },
-                child: _SettingsCard(
-                  isDark: isDark,
-                  children: [
-                    for (final mode in ThemeMode.values)
-                      _RadioRow<ThemeMode>(
-                        isDark: isDark,
-                        value: mode,
-                        title: _themeLabel(mode),
-                        onSelected: () => appSettings.setThemeMode(mode),
-                      ),
+              const _SectionHeader('Apariencia'),
+              _Card(
+                padding: const EdgeInsets.all(12),
+                child: SegmentedButton<ThemeMode>(
+                  showSelectedIcon: false,
+                  style: _segmentStyle(p),
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto_outlined, size: 18),
+                      label: Text('Sistema'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode_outlined, size: 18),
+                      label: Text('Claro'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode_outlined, size: 18),
+                      label: Text('Oscuro'),
+                    ),
                   ],
+                  selected: {appSettings.themeMode},
+                  onSelectionChanged: (s) => appSettings.setThemeMode(s.first),
                 ),
               ),
-              const SizedBox(height: 16),
-              _SectionHeader(
-                text: 'Actualización automática',
-                isDark: isDark,
-              ),
-              RadioGroup<int>(
-                groupValue: appSettings.refreshIntervalMinutes,
-                onChanged: (v) {
-                  if (v != null) appSettings.setRefreshIntervalMinutes(v);
-                },
-                child: _SettingsCard(
-                  isDark: isDark,
-                  children: [
+              const _SectionHeader('Actualizar tasas cada'),
+              _Card(
+                padding: const EdgeInsets.all(12),
+                child: SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  style: _segmentStyle(p),
+                  segments: [
                     for (final m in kRefreshIntervalChoices)
-                      _RadioRow<int>(
-                        isDark: isDark,
-                        value: m,
-                        title: 'Cada $m minutos',
-                        onSelected: () =>
-                            appSettings.setRefreshIntervalMinutes(m),
-                      ),
+                      ButtonSegment(value: m, label: Text('$m min')),
                   ],
+                  selected: {appSettings.refreshIntervalMinutes},
+                  onSelectionChanged: (s) =>
+                      appSettings.setRefreshIntervalMinutes(s.first),
                 ),
               ),
               if (customRatesStore.rates.length >= 2) ...[
-                const SizedBox(height: 16),
-                _SectionHeader(
-                  text: 'Tasas personalizadas',
-                  isDark: isDark,
-                ),
-                _SettingsCard(
-                  isDark: isDark,
-                  children: [
-                    ListTile(
-                      leading: Icon(
-                        Icons.swap_vert,
-                        color: isDark
-                            ? const Color(0xFFCBD5E1)
-                            : const Color(0xFF475569),
-                      ),
-                      title: Text(
-                        'Reordenar tasas',
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Arrastra para cambiar el orden de las tasas',
-                        style: TextStyle(
-                          color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
-                          fontSize: 12,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
-                      ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ReorderRatesScreen(),
-                        ),
+                const _SectionHeader('Tasas personalizadas'),
+                _Card(
+                  child: ListTile(
+                    leading: Icon(Icons.swap_vert_rounded, color: p.accent),
+                    title: Text(
+                      'Reordenar tasas',
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
+                    subtitle: Text(
+                      'Arrastra para cambiar el orden',
+                      style: TextStyle(color: p.textSecondary, fontSize: 13),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      color: p.textTertiary,
+                    ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ReorderRatesScreen(),
+                      ),
+                    ),
+                  ),
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               const _Footer(),
-              const SizedBox(height: 16),
             ],
           );
         },
@@ -133,100 +100,56 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  String _themeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system:
-        return 'Sistema';
-      case ThemeMode.light:
-        return 'Claro';
-      case ThemeMode.dark:
-        return 'Oscuro';
-    }
-  }
+  ButtonStyle _segmentStyle(AppPalette p) => SegmentedButton.styleFrom(
+    selectedBackgroundColor: p.accentSoft,
+    selectedForegroundColor: p.accent,
+    foregroundColor: p.textSecondary,
+    side: BorderSide(color: p.border),
+    textStyle: const TextStyle(
+      fontFamily: kFontFamily,
+      fontWeight: FontWeight.w600,
+    ),
+  );
 }
 
 class _SectionHeader extends StatelessWidget {
   final String text;
-  final bool isDark;
-  const _SectionHeader({required this.text, required this.isDark});
+  const _SectionHeader(this.text);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+      padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
       child: Text(
         text.toUpperCase(),
         style: TextStyle(
-          color: isDark
-              ? const Color(0xFF94A3B8)
-              : const Color(0xFF64748B),
+          color: context.palette.textTertiary,
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
+          letterSpacing: 1.1,
         ),
       ),
     );
   }
 }
 
-class _SettingsCard extends StatelessWidget {
-  final List<Widget> children;
-  final bool isDark;
-  const _SettingsCard({required this.children, required this.isDark});
+class _Card extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets padding;
+  const _Card({required this.child, this.padding = EdgeInsets.zero});
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Container(
+      clipBehavior: Clip.antiAlias,
+      padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
-        ),
+        color: p.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: p.border),
       ),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _RadioRow<T> extends StatelessWidget {
-  final T value;
-  final String title;
-  final VoidCallback onSelected;
-  final bool isDark;
-
-  const _RadioRow({
-    required this.value,
-    required this.title,
-    required this.onSelected,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    return InkWell(
-      onTap: onSelected,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          children: [
-            Radio<T>(
-              value: value,
-              activeColor: const Color(0xFF16A34A),
-            ),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: child,
     );
   }
 }
@@ -255,60 +178,40 @@ class _FooterState extends State<_Footer> {
   }
 
   Future<void> _openGithub() async {
-    final uri = Uri.parse(_githubUrl);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final ok = await launchUrl(
+      Uri.parse(_githubUrl),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el enlace.')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final subColor =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final accent =
-        isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D);
-
+    final p = context.palette;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           'Desarrollado por Joshua Vargas',
           style: TextStyle(
-            color: subColor,
+            color: p.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: _openGithub,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.code, size: 14, color: accent),
-                const SizedBox(width: 6),
-                Text(
-                  'github.com/jshvargsdev',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        TextButton.icon(
+          onPressed: _openGithub,
+          icon: const Icon(Icons.code_rounded, size: 16),
+          label: const Text('github.com/jshvargsdev'),
         ),
-        const SizedBox(height: 6),
-        Text(
-          _version != null ? 'v$_version' : '',
-          style: TextStyle(
-            color: subColor.withValues(alpha: 0.7),
-            fontSize: 12,
+        if (_version != null)
+          Text(
+            'v$_version',
+            style: TextStyle(color: p.textTertiary, fontSize: 12),
           ),
-        ),
       ],
     );
   }
