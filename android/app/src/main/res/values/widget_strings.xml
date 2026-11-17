@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Dólar y euro BCV y USDT Binance</string>
+    <string name="widget_title">Lukas Sync</string>
+    <string name="widget_usd_label">🇺🇸  Dólar BCV</string>
+    <string name="widget_eur_label">🇪🇺  Euro BCV</string>
+    <string name="widget_usdt_label">₮  USDT Binance</string>
+    <string name="widget_empty_value">—</string>
+    <string name="widget_empty_updated">Abre la app para cargar</string>
+</resources>
