@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lukas_sync_app/main.dart';
@@ -61,5 +62,33 @@ void main() {
     );
     expect(find.text('Sin conexión a internet.'), findsOneWidget);
     expect(find.text('Reintentar'), findsOneWidget);
+  });
+
+  testWidgets('mantener una moneda permite copiar su monto', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    await pumpApp(tester, FakeRateSource(next: sampleRates()));
+
+    await tester.tap(find.text('Dólar BCV'));
+    await tester.pump();
+    for (final k in ['5', '0', '0']) {
+      await tester.tap(find.widgetWithText(InkWell, k).last);
+      await tester.pump();
+    }
+    await tester.longPress(find.text('Bolívares'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copiar 182,56'));
+    await tester.pumpAndSettle();
+
+    expect(copied, '182,56');
+    expect(find.text('Monto copiado: 182,56'), findsOneWidget);
   });
 }

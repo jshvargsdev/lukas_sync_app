@@ -10,6 +10,7 @@ class AmountHero extends StatelessWidget {
   final String amount;
   final String caption;
   final List<Widget> actions;
+  final VoidCallback? onAmountTap;
 
   const AmountHero({
     super.key,
@@ -18,6 +19,7 @@ class AmountHero extends StatelessWidget {
     required this.amount,
     required this.caption,
     this.actions = const [],
+    this.onAmountTap,
   });
 
   @override
@@ -53,24 +55,28 @@ class AmountHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: SizedBox(
-              height: 52,
-              width: double.infinity,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  amount,
-                  maxLines: 1,
-                  style: TextStyle(
-                    color: p.textPrimary,
-                    fontSize: 44,
-                    height: 1.1,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -1.2,
-                    fontFeatures: kTabularFigures,
+          GestureDetector(
+            onTap: onAmountTap,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    amount,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: p.textPrimary,
+                      fontSize: 44,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1.2,
+                      fontFeatures: kTabularFigures,
+                    ),
                   ),
                 ),
               ),

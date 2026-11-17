@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/converter.dart';
 import '../domain/currency.dart';
+import '../domain/share_text.dart';
 import '../domain/time_format.dart';
 import '../main.dart';
 import '../models/custom_rate.dart';
@@ -147,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Tip: mantén presionada una tasa para editarla o eliminarla.',
+            'Tip: mantén presionada una moneda para copiarla o editarla.',
           ),
           duration: Duration(seconds: 5),
         ),
@@ -156,6 +159,84 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint('Error guardando hint flag: $e');
     }
+  }
+
+  // --- Copiar y compartir -------------------------------------------------
+
+  Future<void> _copy(String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('$label copiado: $text'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  Future<void> _share(
+    CurrencyOption active,
+    List<CurrencyOption> options,
+  ) async {
+    final text = buildShareText(
+      amount: centsInputToAmount(_input),
+      from: active,
+      options: options,
+      ratesDate: ratesController.rates?.fetchedAt,
+    );
+    try {
+      await SharePlus.instance.share(ShareParams(text: text));
+    } catch (e) {
+      debugPrint('Error compartiendo: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el menú de compartir.')),
+      );
+    }
+  }
+
+  /// Menú al mantener presionada una moneda.
+  Future<void> _showTileActions(CurrencyOption o, String amount) {
+    return showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_rounded),
+              title: Text('Copiar $amount'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _copy(amount, 'Monto');
+              },
+            ),
+            if (!o.isVes && o.rateInVes > 0)
+              ListTile(
+                leading: const Icon(Icons.percent_rounded),
+                title: Text('Copiar tasa ${formatVes(o.rateInVes)}'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _copy(formatVes(o.rateInVes), 'Tasa');
+                },
+              ),
+            if (o.isCustom)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Editar tasa'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openRateSheet(editing: o.custom);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openSettings() => Navigator.of(
@@ -200,6 +281,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     name: active.name,
                     amount: formatVes(amount),
                     caption: _rateCaption(active),
+                    onAmountTap: () => _copy(formatVes(amount), 'Monto'),
+                    actions: [
+                      IconButton(
+                        tooltip: 'Copiar monto',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _copy(formatVes(amount), 'Monto'),
+                        icon: Icon(
+                          Icons.copy_rounded,
+                          size: 20,
+                          color: context.palette.textSecondary,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Compartir conversión',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _share(active, options),
+                        icon: Icon(
+                          Icons.ios_share_rounded,
+                          size: 20,
+                          color: context.palette.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(child: _buildList(options, active, amount)),
@@ -234,6 +338,25 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildTile(CurrencyOption o, CurrencyOption active, double amount) {
+    final converted = formatVes(
+      convertAmount(
+        amount: amount,
+        fromRateInVes: active.rateInVes,
+        toRateInVes: o.rateInVes,
+      ),
+    );
+    return CurrencyTile(
+      key: ValueKey('tile-${o.id}'),
+      icon: o.icon,
+      name: o.name,
+      subtitle: o.isVes ? 'Moneda nacional' : 'Tasa ${formatVes(o.rateInVes)}',
+      amount: converted,
+      onTap: () => _select(o.id),
+      onLongPress: () => _showTileActions(o, converted),
     );
   }
 
@@ -280,25 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 for (var i = 0; i < others.length; i++) ...[
                   if (i > 0) const Divider(indent: 68),
-                  CurrencyTile(
-                    key: ValueKey('tile-${others[i].id}'),
-                    icon: others[i].icon,
-                    name: others[i].name,
-                    subtitle: others[i].isVes
-                        ? 'Moneda nacional'
-                        : 'Tasa ${formatVes(others[i].rateInVes)}',
-                    amount: formatVes(
-                      convertAmount(
-                        amount: amount,
-                        fromRateInVes: active.rateInVes,
-                        toRateInVes: others[i].rateInVes,
-                      ),
-                    ),
-                    onTap: () => _select(others[i].id),
-                    onLongPress: others[i].isCustom
-                        ? () => _openRateSheet(editing: others[i].custom)
-                        : null,
-                  ),
+                  _buildTile(others[i], active, amount),
                 ],
               ],
             ),
