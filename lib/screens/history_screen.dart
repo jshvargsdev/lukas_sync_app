@@ -17,8 +17,7 @@ const int kHistoryPageSize = 30;
 /// Historial del BCV: un card por publicación, de la más reciente a la más
 /// antigua, con carga al bajar y un calendario para saltar a una fecha.
 class HistoryScreen extends StatefulWidget {
-  /// null si la app se compiló sin la API v1 configurada.
-  final RateHistorySource? source;
+  final RateHistorySource source;
   final DateTime Function() now;
 
   const HistoryScreen({super.key, required this.source, this.now = _now});
@@ -82,16 +81,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadMore() async {
-    final source = widget.source;
-    if (source == null) {
-      setState(() {
-        _error =
-            'El historial estará disponible cuando la app use el nuevo '
-            'servicio de tasas.';
-        _hasMore = false;
-      });
-      return;
-    }
     if (_loading || !_hasMore) return;
     final gen = _generation;
     setState(() {
@@ -99,7 +88,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _error = null;
     });
     try {
-      final page = await source.bcvHistory(
+      final page = await widget.source.bcvHistory(
         before: _nextBefore,
         limit: kHistoryPageSize,
       );
@@ -145,12 +134,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text('Historial BCV'),
         actions: [
-          if (widget.source != null)
-            IconButton(
-              tooltip: 'Ir a una fecha',
-              onPressed: _pickDate,
-              icon: const Icon(Icons.calendar_month_outlined),
-            ),
+          IconButton(
+            tooltip: 'Ir a una fecha',
+            onPressed: _pickDate,
+            icon: const Icon(Icons.calendar_month_outlined),
+          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -208,12 +196,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       );
     } else if (_error != null) {
-      rows.add(
-        _Message(
-          text: _error!,
-          onRetry: widget.source == null ? null : _loadMore,
-        ),
-      );
+      rows.add(_Message(text: _error!, onRetry: _loadMore));
     } else if (_items.isEmpty) {
       rows.add(
         _Message(

@@ -20,4 +20,18 @@ void main() {
     expect(data[WidgetKeys.usdt], '1.312,50');
     expect(data[WidgetKeys.updated], startsWith('17 nov'));
   });
+
+  test('sin tasa (0) el widget muestra un guion', () {
+    final data = widgetDataFor(
+      Rates(
+        dolarBcv: 915.7476,
+        euroBcv: 1008.3113674,
+        usdtBinance: 0,
+        fetchedAt: DateTime(2026, 11, 17, 9, 30),
+      ),
+    );
+    expect(data[WidgetKeys.usd], '915,75');
+    expect(data[WidgetKeys.eur], '1.008,31');
+    expect(data[WidgetKeys.usdt], '—');
+  });
 }

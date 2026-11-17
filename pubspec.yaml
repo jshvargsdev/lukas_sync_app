@@ -16,7 +16,6 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.2
   intl: ^0.20.2
-  flutter_dotenv: ^5.2.1
   url_launcher: ^6.3.1
   package_info_plus: ^8.1.0
   home_widget: ^0.10.0
@@ -33,7 +32,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon.png
-    - .env
 
   fonts:
     - family: Inter

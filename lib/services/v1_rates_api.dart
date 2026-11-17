@@ -8,9 +8,12 @@ import '../models/bcv_publication.dart';
 import '../models/rates.dart';
 import 'rate_source.dart';
 
-/// URL base de la API v1 (ver docs/api-v1.md). Se define al compilar:
-/// `flutter build apk --dart-define=RATES_API_BASE_URL=https://...`
-const String kRatesApiBaseUrl = String.fromEnvironment('RATES_API_BASE_URL');
+/// URL base de la API v1 (ver docs/api-v1.md). Por defecto la de producción;
+/// se puede cambiar al compilar con `--dart-define=RATES_API_BASE_URL=...`.
+const String kRatesApiBaseUrl = String.fromEnvironment(
+  'RATES_API_BASE_URL',
+  defaultValue: 'https://tasas-api-liart.vercel.app',
+);
 
 /// Historial de publicaciones del BCV.
 abstract class RateHistorySource {
@@ -75,6 +78,11 @@ class V1RatesApi implements RateSource, RateHistorySource {
       throw const RateFetchException('Sin conexión a internet.');
     }
 
+    if (response.statusCode == 503) {
+      throw const RateFetchException(
+        'Las tasas del BCV no están disponibles por ahora.',
+      );
+    }
     if (response.statusCode == 400) {
       throw const RateFetchException('La fecha elegida no es válida.');
     }

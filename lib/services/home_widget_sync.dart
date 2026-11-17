@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:workmanager/workmanager.dart';
@@ -8,7 +7,7 @@ import 'package:workmanager/workmanager.dart';
 import '../domain/converter.dart';
 import '../domain/time_format.dart';
 import '../models/rates.dart';
-import 'rate_source.dart';
+import 'v1_rates_api.dart';
 
 /// Clase nativa del widget (android/app/src/main/kotlin/.../RatesWidgetProvider.kt).
 const String kWidgetProvider = 'com.joshuavargas.lukassync.RatesWidgetProvider';
@@ -27,12 +26,15 @@ bool get _isAndroid =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 /// Datos que muestra el widget, ya formateados.
+/// Una tasa en 0 (p. ej. USDT cuando Binance no respondió) se muestra como "—".
 Map<String, String> widgetDataFor(Rates r) => {
-  WidgetKeys.usd: formatRate(r.dolarBcv),
-  WidgetKeys.eur: formatRate(r.euroBcv),
-  WidgetKeys.usdt: formatRate(r.usdtBinance),
+  WidgetKeys.usd: _rateOrDash(r.dolarBcv),
+  WidgetKeys.eur: _rateOrDash(r.euroBcv),
+  WidgetKeys.usdt: _rateOrDash(r.usdtBinance),
   WidgetKeys.updated: formatDateTime(r.fetchedAt),
 };
+
+String _rateOrDash(double rate) => rate > 0 ? formatRate(rate) : '—';
 
 /// Guarda las tasas para el widget y le pide que se redibuje.
 Future<void> pushRatesToWidget(Rates rates) async {
@@ -72,9 +74,8 @@ void widgetRefreshDispatcher() {
   Workmanager().executeTask((task, _) async {
     WidgetsFlutterBinding.ensureInitialized();
     try {
-      await dotenv.load(fileName: '.env');
       await initializeDateFormatting('es_VE', null);
-      final rates = await ApiRateSource().fetchRates();
+      final rates = await V1RatesApi(baseUrl: kRatesApiBaseUrl).fetchRates();
       await pushRatesToWidget(rates);
       return true;
     } catch (e) {

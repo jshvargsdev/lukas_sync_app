@@ -97,6 +97,15 @@ void main() {
       );
     });
 
+    test('503: el BCV todavía no tiene tasas', () async {
+      await expectLater(
+        apiReturning(503, {
+          'error': {'code': 'BCV_UNAVAILABLE', 'message': 'x'},
+        }).fetchRates(),
+        throwsRateError('Las tasas del BCV no están disponibles por ahora.'),
+      );
+    });
+
     test('sin conexión', () async {
       final api = V1RatesApi(
         baseUrl: 'https://api.test',

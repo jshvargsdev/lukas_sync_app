@@ -286,10 +286,14 @@ class _HomeScreenState extends State<HomeScreen> {
       key: ValueKey('tile-${o.id}'),
       icon: o.icon,
       name: o.name,
-      subtitle: o.isVes ? 'Moneda nacional' : 'Tasa ${formatRate(o.rateInVes)}',
+      subtitle: o.isVes
+          ? 'Moneda nacional'
+          : (o.rateInVes > 0
+                ? 'Tasa ${formatRate(o.rateInVes)}'
+                : 'Tasa no disponible'),
       amount: converted,
       onTap: () => _select(o.id),
-      onCopy: () => _copy(converted, 'Monto'),
+      onCopy: o.rateInVes > 0 ? () => _copy(converted, 'Monto') : null,
       onLongPress: o.isVes ? null : () => _showTileActions(o),
     );
   }

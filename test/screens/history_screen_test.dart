@@ -49,7 +49,7 @@ class FakeHistory implements RateHistorySource {
   }
 }
 
-Future<void> pumpHistory(WidgetTester tester, RateHistorySource? source) async {
+Future<void> pumpHistory(WidgetTester tester, RateHistorySource source) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(Brightness.light),
@@ -163,12 +163,5 @@ void main() {
     await tester.tap(find.text('Reintentar'));
     await tester.pumpAndSettle();
     expect(find.byType(PublicationCard), findsNWidgets(3));
-  });
-
-  testWidgets('sin la API v1 configurada lo explica', (tester) async {
-    await pumpHistory(tester, null);
-    expect(find.textContaining('nuevo servicio de tasas'), findsOneWidget);
-    expect(find.text('Reintentar'), findsNothing);
-    expect(find.byTooltip('Ir a una fecha'), findsNothing);
   });
 }

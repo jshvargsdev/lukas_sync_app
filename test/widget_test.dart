@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lukas_sync_app/main.dart';
+import 'package:lukas_sync_app/models/rates.dart';
 import 'package:lukas_sync_app/services/rate_source.dart';
 import 'package:lukas_sync_app/services/rates_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -145,5 +146,25 @@ void main() {
     expect(customRatesStore.rates.single.value, '0.061');
     // Al crearla queda activa: el caption muestra la tasa completa.
     expect(find.text('1 Peso colombiano = 0,061 Bs'), findsOneWidget);
+  });
+
+  testWidgets('sin USDT muestra "Tasa no disponible" y no permite copiar', (
+    tester,
+  ) async {
+    final r = sampleRates();
+    await pumpApp(
+      tester,
+      FakeRateSource(
+        next: Rates(
+          dolarBcv: r.dolarBcv,
+          euroBcv: r.euroBcv,
+          usdtBinance: 0,
+          fetchedAt: r.fetchedAt,
+        ),
+      ),
+    );
+    expect(find.text('Tasa no disponible'), findsOneWidget);
+    expect(find.byTooltip('Copiar monto en USDT Binance'), findsNothing);
+    expect(find.byTooltip('Copiar monto en Dólar BCV'), findsOneWidget);
   });
 }

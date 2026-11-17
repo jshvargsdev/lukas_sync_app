@@ -21,11 +21,22 @@ class RatesWidgetProvider : HomeWidgetProvider() {
         widgetData: SharedPreferences,
     ) {
         val empty = context.getString(R.string.widget_empty_value)
+        val rates = listOf(
+            Triple("widget_usd", R.id.widget_usd, R.id.widget_usd_suffix),
+            Triple("widget_eur", R.id.widget_eur, R.id.widget_eur_suffix),
+            Triple("widget_usdt", R.id.widget_usdt, R.id.widget_usdt_suffix),
+        )
         for (id in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.rates_widget).apply {
-                setTextViewText(R.id.widget_usd, widgetData.getString("widget_usd", empty))
-                setTextViewText(R.id.widget_eur, widgetData.getString("widget_eur", empty))
-                setTextViewText(R.id.widget_usdt, widgetData.getString("widget_usdt", empty))
+                for ((key, valueId, suffixId) in rates) {
+                    val value = widgetData.getString(key, null) ?: empty
+                    setTextViewText(valueId, value)
+                    // Sin tasa ("—") no se muestra "Bs".
+                    setViewVisibility(
+                        suffixId,
+                        if (value == empty) android.view.View.GONE else android.view.View.VISIBLE,
+                    )
+                }
                 setTextViewText(
                     R.id.widget_updated,
                     widgetData.getString("widget_updated", null)

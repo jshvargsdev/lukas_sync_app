@@ -80,6 +80,8 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/widget_usd_suffix"
+                    android:visibility="gone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
@@ -130,6 +132,8 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/widget_eur_suffix"
+                    android:visibility="gone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
@@ -180,6 +184,8 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/widget_usdt_suffix"
+                    android:visibility="gone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
