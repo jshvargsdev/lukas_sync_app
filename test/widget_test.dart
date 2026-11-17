@@ -102,12 +102,11 @@ void main() {
     expect(find.text('Monto copiado: 273,88'), findsOneWidget);
   });
 
-  testWidgets('el botón de apariencia del Home cambia el tema', (tester) async {
+  testWidgets('el botón de ajustes del Home cambia el tema', (tester) async {
     await pumpApp(tester, FakeRateSource(next: sampleRates()));
     addTearDown(() => appSettings.setThemeMode(ThemeMode.system));
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
 
-    await tester.tap(find.byTooltip('Apariencia'));
+    await tester.tap(find.byTooltip('Ajustes'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Oscuro'));
     await tester.pumpAndSettle();
@@ -200,5 +199,22 @@ void main() {
     await tester.tap(find.byTooltip('Ocultar'));
     await tester.pump();
     expect(find.text('Nueva versión 2.1.0 disponible'), findsNothing);
+  });
+
+  testWidgets('la hoja de ajustes termina con los créditos al pie', (
+    tester,
+  ) async {
+    await pumpApp(tester, FakeRateSource(next: sampleRates()));
+    await tester.tap(find.byTooltip('Ajustes'));
+    await tester.pumpAndSettle();
+
+    final credits = tester.getTopLeft(
+      find.text('Desarrollado por Joshua Vargas'),
+    );
+    final updates = tester.getTopLeft(find.text('Buscar actualizaciones'));
+    final theme = tester.getTopLeft(find.text('Oscuro'));
+    expect(theme.dy, lessThan(updates.dy));
+    expect(updates.dy, lessThan(credits.dy));
+    expect(find.text('github.com/jshvargsdev'), findsOneWidget);
   });
 }
