@@ -1,17 +1,27 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'screens/home_screen.dart';
 import 'services/app_settings.dart';
 import 'services/custom_rates_store.dart';
 import 'services/home_widget_sync.dart';
 import 'services/rates_controller.dart';
+import 'services/update_controller.dart';
 import 'services/v1_rates_api.dart';
 import 'theme/app_theme.dart';
 
 final AppSettings appSettings = AppSettings();
+
+/// Actualizador. Se reemplaza en main() con la versión instalada; deshabilitado
+/// en debug y fuera de Android.
+UpdateController updateController = UpdateController(
+  currentVersion: '0.0.0',
+  enabled: false,
+);
 final CustomRatesStore customRatesStore = CustomRatesStore();
 
 final V1RatesApi _api = V1RatesApi(baseUrl: kRatesApiBaseUrl);
@@ -31,9 +41,15 @@ Future<void> main() async {
   await initializeDateFormatting('es_VE', null);
   await appSettings.load();
   await customRatesStore.load();
+  final info = await PackageInfo.fromPlatform();
+  updateController = UpdateController(
+    currentVersion: info.version,
+    enabled: kReleaseMode && defaultTargetPlatform == TargetPlatform.android,
+  );
   runApp(const LukasSyncApp());
   ratesController.start();
   scheduleWidgetRefresh();
+  updateController.start();
 }
 
 Future<void> _applyOrientationPolicy() async {

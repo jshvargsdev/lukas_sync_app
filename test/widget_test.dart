@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lukas_sync_app/main.dart';
 import 'package:lukas_sync_app/models/rates.dart';
 import 'package:lukas_sync_app/services/rate_source.dart';
 import 'package:lukas_sync_app/services/rates_controller.dart';
+import 'package:lukas_sync_app/services/update_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_rate_source.dart';
@@ -166,5 +171,34 @@ void main() {
     expect(find.text('Tasa no disponible'), findsOneWidget);
     expect(find.byTooltip('Copiar monto en USDT Binance'), findsNothing);
     expect(find.byTooltip('Copiar monto en Dólar BCV'), findsOneWidget);
+  });
+
+  testWidgets('aviso de versión nueva en el Home, que se puede ocultar', (
+    tester,
+  ) async {
+    updateController = UpdateController(
+      currentVersion: '2.0.0',
+      enabled: true,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'tag_name': 'v2.1.0', 'body': '', 'assets': []}),
+          200,
+        ),
+      ),
+    );
+    addTearDown(() {
+      updateController = UpdateController(
+        currentVersion: '0.0.0',
+        enabled: false,
+      );
+    });
+    await pumpApp(tester, FakeRateSource(next: sampleRates()));
+    await tester.runAsync(updateController.start);
+    await tester.pump();
+
+    expect(find.text('Nueva versión 2.1.0 disponible'), findsOneWidget);
+    await tester.tap(find.byTooltip('Ocultar'));
+    await tester.pump();
+    expect(find.text('Nueva versión 2.1.0 disponible'), findsNothing);
   });
 }

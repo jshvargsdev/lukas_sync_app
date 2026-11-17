@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Actualizador dentro de la app: abrir el instalador con el APK descargado. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="Lukas Sync"
         android:name="${applicationName}"
@@ -26,6 +28,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Comparte el APK descargado con el instalador (ver MainActivity.kt). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updater"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/updater_paths" />
+        </provider>
         <!-- Widget de pantalla de inicio (ver RatesWidgetProvider.kt). -->
         <receiver
             android:name=".RatesWidgetProvider"

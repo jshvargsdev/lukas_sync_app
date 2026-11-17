@@ -3,7 +3,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
+import '../services/update_controller.dart';
 import '../theme/app_theme.dart';
+import 'update_sheet.dart';
 
 /// Ícono que representa el modo de tema actual.
 IconData themeModeIcon(ThemeMode mode) => switch (mode) {
@@ -99,6 +101,39 @@ class _Footer extends StatefulWidget {
 class _FooterState extends State<_Footer> {
   static const _githubUrl = 'https://github.com/jshvargsdev';
   String? _version;
+  bool _checking = false;
+
+  Future<void> _checkUpdates() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    void say(String text) => messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+
+    if (!updateController.enabled) {
+      say('Las actualizaciones solo funcionan en la versión instalada.');
+      return;
+    }
+    setState(() => _checking = true);
+    try {
+      final release = await updateController.check(force: true);
+      if (!mounted) return;
+      if (release == null) {
+        say(
+          'Ya tienes la última versión (${updateController.currentVersion}).',
+        );
+        return;
+      }
+      final homeContext = navigator.context;
+      navigator.pop();
+      if (!homeContext.mounted) return;
+      await showUpdateSheet(homeContext, updateController, release);
+    } on UpdateException catch (e) {
+      say(e.message);
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
 
   @override
   void initState() {
@@ -147,6 +182,17 @@ class _FooterState extends State<_Footer> {
             'v$_version',
             style: TextStyle(color: p.textTertiary, fontSize: 12),
           ),
+        TextButton.icon(
+          onPressed: _checking ? null : _checkUpdates,
+          icon: _checking
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.system_update_rounded, size: 16),
+          label: const Text('Buscar actualizaciones'),
+        ),
       ],
     );
   }

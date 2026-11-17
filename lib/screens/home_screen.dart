@@ -16,6 +16,7 @@ import '../widgets/copy_to_clipboard.dart';
 import '../widgets/amount_hero.dart';
 import '../widgets/currency_tile.dart';
 import '../widgets/custom_keypad.dart';
+import '../widgets/update_sheet.dart';
 import 'history_screen.dart';
 
 const _kLongPressHintKey = '@lukas_longpress_hint_shown';
@@ -230,6 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _Header(onAppearance: () => showAppearanceSheet(context)),
                 _NoticeBanner(),
+                UpdateBanner(controller: updateController),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: AmountHero(
