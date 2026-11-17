@@ -5,4 +5,7 @@
     <string name="widget_eur_label">🇪🇺 Euro</string>
     <string name="widget_usdt_label">₮ USDT</string>
     <string name="widget_empty_value">—</string>
+    <string name="widget_currency_suffix">Bs</string>
+    <string name="widget_title">Lukas Sync</string>
+    <string name="widget_empty_updated">Abre la app para cargar</string>
 </resources>
