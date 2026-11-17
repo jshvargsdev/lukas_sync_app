@@ -211,10 +211,18 @@ void main() {
     final credits = tester.getTopLeft(
       find.text('Desarrollado por Joshua Vargas'),
     );
-    final updates = tester.getTopLeft(find.text('Buscar actualizaciones'));
+    final updates = tester.getTopLeft(find.text('Buscar'));
     final theme = tester.getTopLeft(find.text('Oscuro'));
     expect(theme.dy, lessThan(updates.dy));
     expect(updates.dy, lessThan(credits.dy));
     expect(find.text('github.com/jshvargsdev'), findsOneWidget);
+
+    // El resultado de buscar se ve dentro de la hoja (no en un snackbar).
+    await tester.tap(find.text('Buscar'));
+    await tester.pump();
+    expect(
+      find.text('Las actualizaciones solo funcionan en la versión instalada.'),
+      findsOneWidget,
+    );
   });
 }

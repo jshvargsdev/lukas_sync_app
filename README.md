@@ -28,7 +28,8 @@ de iOS existe pero no se ha probado, y el widget es solo para Android.
   con el botón o deslizando hacia abajo. Caché local para funcionar sin conexión.
 - **Actualizaciones desde la app**: avisa cuando hay un release nuevo en
   GitHub, descarga el APK del teléfono y abre el instalador.
-- Tema claro / oscuro / sistema desde el botón de apariencia del Home.
+- Ajustes (engranaje del Home): tema claro / oscuro / sistema, versión
+  instalada y búsqueda de actualizaciones.
 - Formato venezolano de números y fechas (`es_VE`).
 
 ## Requisitos
@@ -91,8 +92,8 @@ La app busca versiones nuevas en los
      --title "Lukas Sync 2.2.0" --notes-file notas.txt
    ```
 
-Las apps instaladas lo detectan en un máximo de 6 horas (o al tocar *Buscar
-actualizaciones* en Apariencia). No publiques un release como "latest" si no
+Las apps instaladas lo detectan en un máximo de 6 horas (o al tocar "Buscar" en
+Ajustes > Actualizaciones). No publiques un release como "latest" si no
 quieres que todos lo reciban: para pruebas usa `--prerelease`, que la API de
 `releases/latest` ignora.
 
@@ -141,4 +142,4 @@ docs/api-v1.md         # Contrato con tasas-api
 - `intl` + `flutter_localizations` — formatos `es_VE` y textos del sistema en español.
 - `home_widget` — datos y actualización del widget de Android.
 - `workmanager` — descarga horaria en segundo plano para el widget.
-- `url_launcher`, `package_info_plus` — enlace a GitHub y versión en Apariencia.
+- `url_launcher`, `package_info_plus` — enlace a GitHub en Ajustes y versión instalada.

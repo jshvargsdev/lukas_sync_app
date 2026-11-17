@@ -117,25 +117,29 @@ class _UpdatesRow extends StatefulWidget {
 class _UpdatesRowState extends State<_UpdatesRow> {
   bool _checking = false;
 
+  /// Resultado de la última búsqueda. Se muestra aquí mismo porque un
+  /// snackbar quedaría oculto detrás de la hoja.
+  String? _message;
+
   Future<void> _checkUpdates() async {
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    void say(String text) => messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    void say(String text) {
+      if (mounted) setState(() => _message = text);
+    }
 
     if (!updateController.enabled) {
       say('Las actualizaciones solo funcionan en la versión instalada.');
       return;
     }
-    setState(() => _checking = true);
+    setState(() {
+      _checking = true;
+      _message = null;
+    });
     try {
       final release = await updateController.check(force: true);
       if (!mounted) return;
       if (release == null) {
-        say(
-          'Ya tienes la última versión (${updateController.currentVersion}).',
-        );
+        say('Ya tienes la última versión.');
         return;
       }
       final homeContext = navigator.context;
@@ -176,25 +180,27 @@ class _UpdatesRowState extends State<_UpdatesRow> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (_message != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _message!,
+                      style: TextStyle(color: p.textSecondary, fontSize: 13),
+                    ),
+                  ),
               ],
             ),
           ),
-          Flexible(
-            child: TextButton.icon(
-              onPressed: _checking ? null : _checkUpdates,
-              icon: _checking
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.system_update_rounded, size: 18),
-              label: const Text(
-                'Buscar actualizaciones',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+          TextButton.icon(
+            onPressed: _checking ? null : _checkUpdates,
+            icon: _checking
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.system_update_rounded, size: 18),
+            label: const Text('Buscar'),
           ),
         ],
       ),
