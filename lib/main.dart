@@ -8,6 +8,7 @@ import 'services/app_settings.dart';
 import 'services/custom_rates_store.dart';
 import 'services/rate_source.dart';
 import 'services/rates_controller.dart';
+import 'theme/app_theme.dart';
 
 final AppSettings appSettings = AppSettings();
 final CustomRatesStore customRatesStore = CustomRatesStore();
@@ -55,24 +56,8 @@ class LukasSyncApp extends StatelessWidget {
         return MaterialApp(
           title: 'Lukas Sync',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.light,
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF16A34A),
-              brightness: Brightness.light,
-            ),
-          ),
-          darkTheme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.dark,
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF16A34A),
-              brightness: Brightness.dark,
-            ),
-          ),
+          theme: buildAppTheme(Brightness.light),
+          darkTheme: buildAppTheme(Brightness.dark),
           themeMode: appSettings.themeMode,
           home: const HomeScreen(),
         );
