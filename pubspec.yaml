@@ -2,7 +2,7 @@ name: lukas_sync_app
 description: "Conversor de monedas para Venezuela: BCV, Binance P2P y tasas personalizadas."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: ^3.11.5
