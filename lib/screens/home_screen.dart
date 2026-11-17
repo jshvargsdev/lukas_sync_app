@@ -221,8 +221,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final screenHeight = MediaQuery.sizeOf(context).height;
     final keypadHeight = screenHeight < 700
-        ? 42.0
-        : (screenHeight < 900 ? 48.0 : 54.0);
+        ? 38.0
+        : (screenHeight < 900 ? 42.0 : 48.0);
     final keypad = CustomKeypad(
       onKeyPress: _handleKeyPress,
       onBackspace: _handleBackspace,

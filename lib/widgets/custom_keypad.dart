@@ -16,7 +16,7 @@ class CustomKeypad extends StatelessWidget {
     required this.onKeyPress,
     required this.onBackspace,
     required this.onReset,
-    this.keyHeight = 54,
+    this.keyHeight = 48,
   });
 
   static const List<List<String>> _layout = [
@@ -26,7 +26,7 @@ class CustomKeypad extends StatelessWidget {
     ['reset', '0', 'backspace'],
   ];
 
-  static const double _gap = 8;
+  static const double _gap = 6;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +39,7 @@ class CustomKeypad extends StatelessWidget {
         ),
         border: Border(top: BorderSide(color: p.border)),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
