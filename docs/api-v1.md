@@ -1,16 +1,21 @@
-# API de tasas v1 (propuesta)
+# API de tasas v1
 
 Contrato que espera Lukas Sync 2.0 de la API nueva que reemplaza a
-`tasas-sync-api`. Estado: **propuesta**, se cierra en la sesión de la API.
+`tasas-sync-api`. Estado: **cerrado** (2026-11-17), implementado y en producción.
+
+- URL base: `https://tasas-api-liart.vercel.app`
+- Código: repo `jshvargsdev/tasas-api` (su README explica el funcionamiento interno)
+- Compilar la app: `--dart-define=RATES_API_BASE_URL=https://tasas-api-liart.vercel.app`
 
 ## Decisiones tomadas
 
 | Tema | Decisión |
 |---|---|
-| Hosting | Vercel, plan gratuito |
-| Base de datos | Postgres en Neon (Vercel Marketplace, plan gratuito) |
+| Hosting | Vercel, plan gratuito. Región `gru1` (São Paulo): Binance P2P bloquea IPs de EE. UU. |
+| Base de datos | Postgres en Neon (Vercel Marketplace, plan gratuito, `sa-east-1`) |
 | BCV | Leído directo de bcv.org.ve, sin APIs de terceros. Se guarda en BD por **fecha valor**, sin redondear |
-| USDT | Binance P2P, lado compra, Pago Móvil. **Promedio de los primeros N anuncios** (N a definir, 5–10). No se guarda; se calcula al vuelo con caché de CDN (~10 min) |
+| USDT | Binance P2P, lado compra, Pago Móvil, **solo comerciantes verificados**. **Promedio de los primeros 10 anuncios**; si vienen menos de 10, no hay tasa (`usdt: null`). No se guarda; se calcula al vuelo con caché de CDN de 5 min |
+| Correcciones del BCV | Si el BCV publica otros valores para una fecha valor ya guardada, se actualiza y lo anterior queda registrado en la BD |
 | Tasa vigente | En fines de semana y feriados aplica la última fecha valor anterior |
 | Historial | Solo BCV. Sin importar histórico previo: empieza cuando arranque la API |
 | Autenticación | Ninguna en los endpoints de lectura (datos públicos). Así no hay token dentro del APK |
@@ -18,10 +23,13 @@ Contrato que espera Lukas Sync 2.0 de la API nueva que reemplaza a
 
 ## Recolección del BCV
 
-- Cron diario de Vercel (el plan gratuito permite uno al día) después de que el
-  BCV publica, que suele ser en la tarde. Guarda `(fecha_valor, usd, eur, fetched_at)`.
-- Respaldo: si al pedir `/v1/rates/latest` la última tasa guardada tiene más
-  de un día, el endpoint intenta leer el BCV en ese momento y la guarda.
+- Cron diario de Vercel (el plan gratuito permite uno al día) a las 22:00 UTC
+  (18:00 en Venezuela; Vercel lo corre dentro de esa hora). Guarda
+  `(fecha_valor, usd, eur, fetched_at)`.
+- Respaldo: si al pedir `/v1/rates/latest` la última fecha valor guardada es
+  anterior a hoy (hora de Venezuela), el endpoint intenta leer el BCV en ese
+  momento y la guarda. Como mucho una vez cada 30 min y con 5 s de timeout.
+  Los fines de semana no se dispara: el viernes el BCV ya publica la del lunes.
 - Si el BCV no responde o el HTML cambió, **no se sobrescribe nada**: se
   sirve el último valor bueno.
 
@@ -49,7 +57,13 @@ Fechas: `AAAA-MM-DD` en hora de Venezuela; instantes en ISO 8601 UTC.
 ```
 
 - Si Binance falla, `usdt` es `null` y el BCV se sigue devolviendo.
-- `Cache-Control: public, s-maxage=600, stale-while-revalidate=3600`.
+- `bcv.valueDate` es la fecha valor más reciente guardada: puede ser de mañana
+  si el BCV ya publicó.
+- `503` si todavía no hay ninguna tasa del BCV (solo pasaría con la BD vacía y
+  el BCV caído).
+- `Cache-Control: public, s-maxage=300, stale-while-revalidate=60`. Con poco
+  tráfico, un `stale-while-revalidate` largo haría que casi todos recibieran el
+  USDT de la petición anterior; así tiene como mucho ~6 min.
 
 ### `GET /v1/rates/bcv/history?before=2026-11-16&limit=30`
 
@@ -77,6 +91,22 @@ cargando más al bajar.
   publicación. La app la obtiene con `before = fecha + 1 día` y toma el
   primer elemento, así que no hace falta un endpoint aparte.
 - `400` si `before` o `limit` son inválidos.
+- `Cache-Control: public, s-maxage=600, stale-while-revalidate=3600`.
+
+### Errores
+
+Cualquier respuesta que no sea 200 lleva el mensaje en español:
+
+```json
+{ "error": { "code": "INVALID_BEFORE", "message": "El parámetro \"before\" debe ser una fecha válida con formato AAAA-MM-DD." } }
+```
+
+| Código HTTP | `code` |
+|---|---|
+| 400 | `INVALID_BEFORE`, `INVALID_LIMIT` |
+| 404 | `NOT_FOUND` |
+| 500 | `INTERNAL` |
+| 503 | `BCV_UNAVAILABLE` |
 
 ## Lo que hace la app con esto
 
