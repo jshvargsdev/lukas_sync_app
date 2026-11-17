@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/converter.dart';
 import '../domain/currency.dart';
-import '../domain/share_text.dart';
 import '../domain/time_format.dart';
 import '../main.dart';
 import '../models/custom_rate.dart';
@@ -150,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Tip: mantén presionada una moneda para copiarla o editarla.',
+            'Tip: mantén presionada una tasa para copiarla o editarla.',
           ),
           duration: Duration(seconds: 5),
         ),
@@ -161,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- Copiar y compartir -------------------------------------------------
+  // --- Copiar ----------------------------------------------------------------
 
   Future<void> _copy(String text, String label) async {
     await Clipboard.setData(ClipboardData(text: text));
@@ -177,43 +175,14 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-  Future<void> _share(
-    CurrencyOption active,
-    List<CurrencyOption> options,
-  ) async {
-    final text = buildShareText(
-      amount: centsInputToAmount(_input),
-      from: active,
-      options: options,
-      ratesDate: ratesController.rates?.fetchedAt,
-    );
-    try {
-      await SharePlus.instance.share(ShareParams(text: text));
-    } catch (e) {
-      debugPrint('Error compartiendo: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo abrir el menú de compartir.')),
-      );
-    }
-  }
-
-  /// Menú al mantener presionada una moneda.
-  Future<void> _showTileActions(CurrencyOption o, String amount) {
+  /// Menú al mantener presionada una moneda: copiar tasa y editar.
+  Future<void> _showTileActions(CurrencyOption o) {
     return showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: Text('Copiar $amount'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _copy(amount, 'Monto');
-              },
-            ),
             if (!o.isVes && o.rateInVes > 0)
               ListTile(
                 leading: const Icon(Icons.percent_rounded),
@@ -282,29 +251,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     name: active.name,
                     amount: formatVes(amount),
                     caption: _rateCaption(active),
-                    onAmountTap: () => _copy(formatVes(amount), 'Monto'),
-                    actions: [
-                      IconButton(
-                        tooltip: 'Copiar monto',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => _copy(formatVes(amount), 'Monto'),
-                        icon: Icon(
-                          Icons.copy_rounded,
-                          size: 20,
-                          color: context.palette.textSecondary,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Compartir conversión',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => _share(active, options),
-                        icon: Icon(
-                          Icons.ios_share_rounded,
-                          size: 20,
-                          color: context.palette.textSecondary,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
                 Expanded(child: _buildList(options, active, amount)),
@@ -357,7 +303,8 @@ class _HomeScreenState extends State<HomeScreen> {
       subtitle: o.isVes ? 'Moneda nacional' : 'Tasa ${formatVes(o.rateInVes)}',
       amount: converted,
       onTap: () => _select(o.id),
-      onLongPress: () => _showTileActions(o, converted),
+      onCopy: () => _copy(converted, 'Monto'),
+      onLongPress: o.isVes ? null : () => _showTileActions(o),
     );
   }
 

@@ -39,6 +39,9 @@ class CurrencyTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
+  /// Copia el monto convertido. Si es null no se muestra el botón.
+  final VoidCallback? onCopy;
+
   const CurrencyTile({
     super.key,
     required this.icon,
@@ -47,6 +50,7 @@ class CurrencyTile extends StatelessWidget {
     required this.amount,
     required this.onTap,
     this.onLongPress,
+    this.onCopy,
   });
 
   @override
@@ -56,7 +60,7 @@ class CurrencyTile extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.fromLTRB(16, 12, onCopy != null ? 4 : 16, 12),
         child: Row(
           children: [
             CurrencyAvatar(icon: icon),
@@ -111,6 +115,12 @@ class CurrencyTile extends StatelessWidget {
                 ),
               ),
             ),
+            if (onCopy != null)
+              IconButton(
+                tooltip: 'Copiar monto en $name',
+                onPressed: onCopy,
+                icon: Icon(Icons.copy_rounded, size: 18, color: p.textTertiary),
+              ),
           ],
         ),
       ),

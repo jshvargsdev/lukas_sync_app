@@ -64,7 +64,9 @@ void main() {
     expect(find.text('Reintentar'), findsOneWidget);
   });
 
-  testWidgets('mantener una moneda permite copiar su monto', (tester) async {
+  testWidgets('cada equivalencia tiene su botón para copiar el monto', (
+    tester,
+  ) async {
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -77,18 +79,20 @@ void main() {
     );
     await pumpApp(tester, FakeRateSource(next: sampleRates()));
 
-    await tester.tap(find.text('Dólar BCV'));
-    await tester.pump();
-    for (final k in ['5', '0', '0']) {
+    // 10.000,00 Bs (se teclea en centavos).
+    for (final k in ['1', '0', '0', '0', '0', '0', '0']) {
       await tester.tap(find.widgetWithText(InkWell, k).last);
       await tester.pump();
     }
-    await tester.longPress(find.text('Bolívares'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Copiar 182,56'));
+    expect(find.text('10.000,00'), findsOneWidget);
+    // Arriba ya no hay botón de copiar.
+    expect(find.byTooltip('Copiar monto'), findsNothing);
+
+    await tester.tap(find.byTooltip('Copiar monto en Dólar BCV'));
     await tester.pumpAndSettle();
 
-    expect(copied, '182,56');
-    expect(find.text('Monto copiado: 182,56'), findsOneWidget);
+    // 10.000 / 36,5123 = 273,88
+    expect(copied, '273,88');
+    expect(find.text('Monto copiado: 273,88'), findsOneWidget);
   });
 }
