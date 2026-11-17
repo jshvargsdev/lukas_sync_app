@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
-import '../models/bcv_historic_rate.dart';
+import '../models/bcv_publication.dart';
 import '../models/rates.dart';
 import 'rate_source.dart';
 
@@ -12,9 +12,11 @@ import 'rate_source.dart';
 /// `flutter build apk --dart-define=RATES_API_BASE_URL=https://...`
 const String kRatesApiBaseUrl = String.fromEnvironment('RATES_API_BASE_URL');
 
-/// Tasa BCV vigente en una fecha pasada.
+/// Historial de publicaciones del BCV.
 abstract class RateHistorySource {
-  Future<BcvHistoricRate> bcvRateOn(DateTime date);
+  /// Publicaciones con fecha valor anterior a [before] (o las más recientes
+  /// si es null), de la más nueva a la más vieja.
+  Future<BcvHistoryPage> bcvHistory({DateTime? before, int limit});
 }
 
 /// Cliente de la API v1: tasas actuales e historial del BCV. Sin token: los
@@ -42,16 +44,18 @@ class V1RatesApi implements RateSource, RateHistorySource {
   }
 
   @override
-  Future<BcvHistoricRate> bcvRateOn(DateTime date) async {
+  Future<BcvHistoryPage> bcvHistory({DateTime? before, int limit = 30}) async {
     final uri = _base
-        .resolve('v1/rates/bcv')
-        .replace(queryParameters: {'date': _dateFormat.format(date)});
-    final json = await _getJson(
-      uri,
-      notFoundMessage: 'No hay tasas guardadas para esa fecha.',
-    );
+        .resolve('v1/rates/bcv/history')
+        .replace(
+          queryParameters: {
+            'limit': '$limit',
+            if (before != null) 'before': _dateFormat.format(before),
+          },
+        );
+    final json = await _getJson(uri);
     try {
-      return BcvHistoricRate.fromJson(json);
+      return BcvHistoryPage.fromJson(json);
     } catch (_) {
       throw const RateFetchException(
         'El servicio de tasas devolvió datos inválidos.',
@@ -59,10 +63,7 @@ class V1RatesApi implements RateSource, RateHistorySource {
     }
   }
 
-  Future<Map<String, dynamic>> _getJson(
-    Uri uri, {
-    String? notFoundMessage,
-  }) async {
+  Future<Map<String, dynamic>> _getJson(Uri uri) async {
     final http.Response response;
     try {
       response = await _client
@@ -74,9 +75,6 @@ class V1RatesApi implements RateSource, RateHistorySource {
       throw const RateFetchException('Sin conexión a internet.');
     }
 
-    if (response.statusCode == 404 && notFoundMessage != null) {
-      throw RateFetchException(notFoundMessage);
-    }
     if (response.statusCode == 400) {
       throw const RateFetchException('La fecha elegida no es válida.');
     }

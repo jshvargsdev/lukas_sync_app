@@ -109,30 +109,53 @@ void main() {
     });
   });
 
-  group('bcvRateOn', () {
-    test('pide la fecha en formato AAAA-MM-DD', () async {
-      late Uri url;
-      final r = await apiReturning(200, {
-        'date': '2026-11-15',
-        'valueDate': '2026-11-13',
-        'usd': 235.91,
-        'eur': 273.4,
-      }, onRequest: (req) => url = req.url).bcvRateOn(DateTime(2026, 11, 15));
+  group('bcvHistory', () {
+    test('primera página: solo limit; siguientes: before', () async {
+      final urls = <Uri>[];
+      final api = apiReturning(200, {
+        'items': [
+          {'valueDate': '2026-11-18', 'usd': 236.4583, 'eur': 274.1032},
+          {'valueDate': '2026-11-17', 'usd': '236.1', 'eur': 273.7},
+        ],
+        'nextBefore': '2026-11-17',
+      }, onRequest: (req) => urls.add(req.url));
 
-      expect(url.toString(), 'https://api.test/v1/rates/bcv?date=2026-11-15');
-      expect(r.usd, 235.91);
-      expect(r.valueDate, DateTime(2026, 11, 13));
-      expect(r.isFromEarlierDay, isTrue);
+      final page = await api.bcvHistory(limit: 2);
+      expect(page.items, hasLength(2));
+      expect(page.items.first.valueDate, DateTime(2026, 11, 18));
+      expect(page.items.first.usd, 236.4583);
+      expect(page.items.last.usd, 236.1);
+      expect(page.nextBefore, DateTime(2026, 11, 17));
+
+      await api.bcvHistory(before: DateTime(2026, 11, 17), limit: 2);
+      expect(urls.map((u) => u.toString()), [
+        'https://api.test/v1/rates/bcv/history?limit=2',
+        'https://api.test/v1/rates/bcv/history?limit=2&before=2026-11-17',
+      ]);
     });
 
-    test('404 y 400 tienen mensajes propios', () async {
+    test('última página: nextBefore null', () async {
+      final page = await apiReturning(200, {
+        'items': <Object>[],
+        'nextBefore': null,
+      }).bcvHistory();
+      expect(page.items, isEmpty);
+      expect(page.nextBefore, isNull);
+    });
+
+    test('400 y datos inválidos', () async {
       await expectLater(
-        apiReturning(404, {}).bcvRateOn(DateTime(2020)),
-        throwsRateError('No hay tasas guardadas para esa fecha.'),
+        apiReturning(400, {}).bcvHistory(before: DateTime(2030)),
+        throwsRateError('La fecha elegida no es válida.'),
       );
       await expectLater(
-        apiReturning(400, {}).bcvRateOn(DateTime(2030)),
-        throwsRateError('La fecha elegida no es válida.'),
+        apiReturning(200, {
+          'items': [
+            {'valueDate': '2026-11-18', 'usd': 0, 'eur': 1},
+          ],
+          'nextBefore': null,
+        }).bcvHistory(),
+        throwsRateError('El servicio de tasas devolvió datos inválidos.'),
       );
     });
   });

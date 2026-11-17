@@ -51,29 +51,37 @@ Fechas: `AAAA-MM-DD` en hora de Venezuela; instantes en ISO 8601 UTC.
 - Si Binance falla, `usdt` es `null` y el BCV se sigue devolviendo.
 - `Cache-Control: public, s-maxage=600, stale-while-revalidate=3600`.
 
-### `GET /v1/rates/bcv?date=2026-11-15`
+### `GET /v1/rates/bcv/history?before=2026-11-16&limit=30`
 
-Tasa BCV **vigente** en esa fecha:
+Publicaciones del BCV (una por fecha valor), de la más reciente a la más
+antigua. Es lo que usa la pantalla Historial: un card por publicación,
+cargando más al bajar.
+
+- `before` (opcional): solo publicaciones con `valueDate < before`. Sin él,
+  empieza por la más reciente (puede ser de mañana si el BCV ya publicó).
+- `limit` (opcional, por defecto 30, máximo 100).
 
 ```json
 {
-  "date": "2026-11-15",
-  "valueDate": "2026-11-13",
-  "usd": 235.91,
-  "eur": 273.4
+  "items": [
+    { "valueDate": "2026-11-13", "usd": 235.91, "eur": 273.4 },
+    { "valueDate": "2026-11-12", "usd": 235.55, "eur": 273.02 }
+  ],
+  "nextBefore": "2026-11-12"
 }
 ```
 
-- Regla (confirmada): la vigente es la de mayor `valueDate` que sea `<= date`.
-  Cubre fines de semana y feriados, en los que no hay publicación.
-- `404` si la fecha es anterior al primer registro guardado, con un mensaje
-  en español.
-- `400` si la fecha es inválida o futura.
+- `nextBefore`: valor de `before` para la página siguiente; `null` si no hay más.
+- **Tasa vigente en una fecha** (regla confirmada): la de mayor `valueDate`
+  que sea `<= fecha`. Cubre fines de semana y feriados, en los que no hay
+  publicación. La app la obtiene con `before = fecha + 1 día` y toma el
+  primer elemento, así que no hace falta un endpoint aparte.
+- `400` si `before` o `limit` son inválidos.
 
 ## Lo que hace la app con esto
 
 - `RateSource` nuevo (`V1RateSource`) que lee `/v1/rates/latest`. Sin token;
   la URL base va por `--dart-define`.
-- Pantalla **Historial**: se elige una fecha y muestra el dólar y el euro BCV
-  vigentes ese día, indicando la fecha valor si es distinta.
+- Pantalla **Historial**: un card por publicación con dólar y euro en
+  columnas, carga al bajar y un calendario para saltar a una fecha.
 - Se elimina `.env` como asset del APK.

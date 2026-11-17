@@ -1,34 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:lukas_sync_app/models/bcv_historic_rate.dart';
+import 'package:lukas_sync_app/models/bcv_publication.dart';
 import 'package:lukas_sync_app/screens/history_screen.dart';
 import 'package:lukas_sync_app/services/rate_source.dart';
 import 'package:lukas_sync_app/services/v1_rates_api.dart';
 import 'package:lukas_sync_app/theme/app_theme.dart';
 
-class FakeHistory implements RateHistorySource {
-  final List<DateTime> asked = [];
-  BcvHistoricRate Function(DateTime date)? answer;
-  RateFetchException? error;
-
-  @override
-  Future<BcvHistoricRate> bcvRateOn(DateTime date) async {
-    asked.add(date);
-    final e = error;
-    if (e != null) throw e;
-    return answer!(date);
+/// Publicaciones de lunes a viernes desde el miércoles 18/11/2026 (la
+/// "próxima") hacia atrás, con tasas que bajan 0,5 por día hábil.
+List<BcvPublication> businessDays(int count) {
+  final out = <BcvPublication>[];
+  var d = DateTime(2026, 11, 18);
+  var usd = 236.5;
+  while (out.length < count) {
+    if (d.weekday <= 5) {
+      out.add(BcvPublication(valueDate: d, usd: usd, eur: usd + 37.6));
+      usd -= 0.5;
+    }
+    d = d.subtract(const Duration(days: 1));
   }
+  return out;
 }
 
-BcvHistoricRate rateFor(DateTime date, {DateTime? valueDate}) =>
-    BcvHistoricRate(
-      date: date,
-      valueDate: valueDate ?? date,
-      usd: 235.9123,
-      eur: 273.4,
+class FakeHistory implements RateHistorySource {
+  final List<BcvPublication> all;
+  final List<DateTime?> asked = [];
+  RateFetchException? error;
+
+  FakeHistory(this.all);
+
+  @override
+  Future<BcvHistoryPage> bcvHistory({DateTime? before, int limit = 30}) async {
+    asked.add(before);
+    final e = error;
+    if (e != null) throw e;
+    final items = all
+        .where((p) => before == null || p.valueDate.isBefore(before))
+        .take(limit)
+        .toList();
+    final more = items.isNotEmpty && all.last != items.last;
+    return BcvHistoryPage(
+      items: items,
+      nextBefore: more ? items.last.valueDate : null,
     );
+  }
+}
 
 Future<void> pumpHistory(WidgetTester tester, RateHistorySource? source) async {
   await tester.pumpWidget(
@@ -50,67 +69,106 @@ Future<void> pumpHistory(WidgetTester tester, RateHistorySource? source) async {
 void main() {
   setUpAll(() => initializeDateFormatting('es_VE'));
 
-  testWidgets('por defecto consulta ayer y muestra dólar y euro', (
+  testWidgets('un card por publicación con dólar y euro y sus badges', (
     tester,
   ) async {
-    final source = FakeHistory()..answer = rateFor;
-    await pumpHistory(tester, source);
+    await pumpHistory(tester, FakeHistory(businessDays(5)));
 
-    expect(source.asked, [DateTime(2026, 11, 16)]);
-    expect(find.text('Lunes, 16 de noviembre de 2026'), findsOneWidget);
-    expect(find.text('235,91 Bs'), findsOneWidget);
-    expect(find.text('273,40 Bs'), findsOneWidget);
-    expect(find.textContaining('no hubo publicación'), findsNothing);
-  });
-
-  testWidgets('en fin de semana aclara la fecha valor que aplica', (
-    tester,
-  ) async {
-    final source = FakeHistory()
-      ..answer = (d) => rateFor(d, valueDate: DateTime(2026, 11, 13));
-    await pumpHistory(tester, source);
-
+    expect(find.text('NOVIEMBRE 2026'), findsOneWidget);
+    expect(find.byType(PublicationCard), findsNWidgets(5));
+    // Miércoles 18 es la próxima; martes 17 (hoy) la vigente.
+    expect(find.text('Próxima'), findsOneWidget);
+    expect(find.text('Vigente'), findsOneWidget);
+    final vigente = find.ancestor(
+      of: find.text('Vigente'),
+      matching: find.byType(PublicationCard),
+    );
     expect(
-      find.text(
-        'Ese día no hubo publicación del BCV. Aplica la tasa con fecha '
-        'valor del viernes 13 de noviembre.',
-      ),
+      find.descendant(of: vigente, matching: find.text('Mar 17 de noviembre')),
       findsOneWidget,
     );
+    // Sábado y domingo no aparecen.
+    expect(find.textContaining('Sáb'), findsNothing);
+    expect(find.textContaining('Dom'), findsNothing);
+    expect(find.textContaining('236,00'), findsOneWidget);
   });
 
-  testWidgets('elegir otra fecha vuelve a consultar', (tester) async {
-    final source = FakeHistory()..answer = rateFor;
+  testWidgets('al bajar carga la página siguiente', (tester) async {
+    final source = FakeHistory(businessDays(45));
+    await pumpHistory(tester, source);
+    expect(source.asked, [null]);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -6000));
+    await tester.pumpAndSettle();
+
+    expect(source.asked, hasLength(2));
+    expect(source.asked.last, businessDays(30).last.valueDate);
+    await tester.drag(find.byType(ListView), const Offset(0, -6000));
+    await tester.pumpAndSettle();
+    expect(find.text('No hay tasas anteriores.'), findsOneWidget);
+  });
+
+  testWidgets('el calendario salta a la tasa vigente en esa fecha', (
+    tester,
+  ) async {
+    final source = FakeHistory(businessDays(30));
     await pumpHistory(tester, source);
 
-    await tester.tap(find.text('Lunes, 16 de noviembre de 2026'));
+    await tester.tap(find.byTooltip('Ir a una fecha'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('10'));
+    await tester.tap(find.text('15')); // domingo
     await tester.tap(find.text('ACEPTAR'));
     await tester.pumpAndSettle();
 
-    expect(source.asked.last, DateTime(2026, 11, 10));
-    expect(find.text('Martes, 10 de noviembre de 2026'), findsOneWidget);
+    // Pide las anteriores al lunes 16: la primera es el viernes 13.
+    expect(source.asked.last, DateTime(2026, 11, 16));
+    expect(find.text('Desde el 15 de noviembre de 2026'), findsOneWidget);
+    final first = tester.widget<PublicationCard>(
+      find.byType(PublicationCard).first,
+    );
+    expect(first.publication.valueDate, DateTime(2026, 11, 13));
+    expect(find.text('Vigente'), findsNothing);
+
+    await tester.tap(find.text('Ver recientes'));
+    await tester.pumpAndSettle();
+    expect(source.asked.last, isNull);
+    expect(find.text('Vigente'), findsOneWidget);
   });
 
-  testWidgets('sin datos para la fecha muestra el mensaje y reintentar', (
-    tester,
-  ) async {
-    final source = FakeHistory()
-      ..error = const RateFetchException(
-        'No hay tasas guardadas para esa fecha.',
-      );
+  testWidgets('tocar una tasa la copia', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    await pumpHistory(tester, FakeHistory(businessDays(3)));
+
+    await tester.tap(find.textContaining('236,50').first);
+    await tester.pumpAndSettle();
+    expect(copied, '236,50');
+  });
+
+  testWidgets('un error se puede reintentar', (tester) async {
+    final source = FakeHistory(businessDays(3))
+      ..error = const RateFetchException('Sin conexión a internet.');
     await pumpHistory(tester, source);
+    expect(find.text('Sin conexión a internet.'), findsOneWidget);
 
-    expect(find.text('No hay tasas guardadas para esa fecha.'), findsOneWidget);
-    expect(find.text('Reintentar'), findsOneWidget);
+    source.error = null;
+    await tester.tap(find.text('Reintentar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PublicationCard), findsNWidgets(3));
   });
 
-  testWidgets('sin la API v1 configurada lo explica sin reintentar', (
-    tester,
-  ) async {
+  testWidgets('sin la API v1 configurada lo explica', (tester) async {
     await pumpHistory(tester, null);
     expect(find.textContaining('nuevo servicio de tasas'), findsOneWidget);
     expect(find.text('Reintentar'), findsNothing);
+    expect(find.byTooltip('Ir a una fecha'), findsNothing);
   });
 }
