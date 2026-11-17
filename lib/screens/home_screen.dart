@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/converter.dart';
@@ -13,9 +12,11 @@ import '../theme/app_theme.dart';
 import '../widgets/add_rate_card.dart';
 import '../widgets/add_rate_modal.dart';
 import '../widgets/appearance_sheet.dart';
+import '../widgets/copy_to_clipboard.dart';
 import '../widgets/amount_hero.dart';
 import '../widgets/currency_tile.dart';
 import '../widgets/custom_keypad.dart';
+import 'history_screen.dart';
 
 const _kLongPressHintKey = '@lukas_longpress_hint_shown';
 
@@ -161,19 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // --- Copiar ----------------------------------------------------------------
 
-  Future<void> _copy(String text, String label) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!mounted) return;
-    HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$label copiado: $text'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-  }
+  Future<void> _copy(String text, String label) =>
+      copyWithFeedback(context, text, label: label);
 
   /// Menú al mantener presionada una moneda: copiar tasa y editar.
   Future<void> _showTileActions(CurrencyOption o) {
@@ -442,6 +432,15 @@ class _Header extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Historial',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => HistoryScreen(source: rateHistorySource),
+              ),
+            ),
+            icon: Icon(Icons.calendar_month_outlined, color: p.textSecondary),
           ),
           IconButton(
             tooltip: 'Actualizar',

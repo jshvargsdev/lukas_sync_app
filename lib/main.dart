@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'screens/home_screen.dart';
@@ -9,10 +10,17 @@ import 'services/custom_rates_store.dart';
 import 'services/home_widget_sync.dart';
 import 'services/rate_source.dart';
 import 'services/rates_controller.dart';
+import 'services/v1_rates_api.dart';
 import 'theme/app_theme.dart';
 
 final AppSettings appSettings = AppSettings();
 final CustomRatesStore customRatesStore = CustomRatesStore();
+
+/// Historial del BCV. null si la app se compiló sin RATES_API_BASE_URL.
+/// Se reasigna en los tests.
+RateHistorySource? rateHistorySource = kRatesApiBaseUrl.isEmpty
+    ? null
+    : V1RatesApi(baseUrl: kRatesApiBaseUrl);
 
 /// Se reasigna en los tests para usar una fuente de tasas falsa.
 RatesController ratesController = RatesController(
@@ -61,6 +69,9 @@ class LukasSyncApp extends StatelessWidget {
           theme: buildAppTheme(Brightness.light),
           darkTheme: buildAppTheme(Brightness.dark),
           themeMode: appSettings.themeMode,
+          locale: const Locale('es', 'VE'),
+          supportedLocales: const [Locale('es', 'VE'), Locale('es')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
           home: const HomeScreen(),
         );
       },
