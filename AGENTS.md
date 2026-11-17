@@ -33,6 +33,7 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
 - **Actualizaciones**: la app lee `releases/latest` de este repo y descarga el
   asset `app-<abi>-release.apk`. No cambiar esos nombres ni el formato del tag
   (`vX.Y.Z`) sin actualizar `lib/domain/app_release.dart`. El repo es público.
+  Las notas del release van en texto plano (la app no interpreta Markdown).
 - **Firma**: el release se firma con la llave de `android/key.properties`
   (keystore en `~/Personal/.keys/`, fuera del repo). Nunca commitear ni
   regenerar la llave: con otra llave las actualizaciones no se instalan encima.

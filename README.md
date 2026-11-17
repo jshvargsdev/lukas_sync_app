@@ -79,14 +79,16 @@ La app busca versiones nuevas en los
 3. `flutter build apk --release --split-per-abi` (con `android/key.properties`
    presente: si se firma con otra llave, la actualización no se instala).
 4. Crea el release con tag `v<versión>`, los tres APK con su nombre original
-   (`app-<abi>-release.apk`) y las notas en español, que la app muestra tal cual:
+   (`app-<abi>-release.apk`) y las notas en español **en texto plano** (sin
+   Markdown: la app las muestra tal cual, así que `**` o `*` se verían). Para
+   listas usa `•`:
 
    ```bash
    gh-personal release create v2.2.0 \
      build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
      build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
      build/app/outputs/flutter-apk/app-x86_64-release.apk \
-     --title "Lukas Sync 2.2.0" --notes-file notas.md
+     --title "Lukas Sync 2.2.0" --notes-file notas.txt
    ```
 
 Las apps instaladas lo detectan en un máximo de 6 horas (o al tocar *Buscar
