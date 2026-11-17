@@ -11,6 +11,7 @@ Contrato que espera Lukas Sync 2.0 de la API nueva que reemplaza a
 | Base de datos | Postgres en Neon (Vercel Marketplace, plan gratuito) |
 | BCV | Leído directo de bcv.org.ve, sin APIs de terceros. Se guarda en BD por **fecha valor**, sin redondear |
 | USDT | Binance P2P, lado compra, Pago Móvil. **Promedio de los primeros N anuncios** (N a definir, 5–10). No se guarda; se calcula al vuelo con caché de CDN (~10 min) |
+| Tasa vigente | En fines de semana y feriados aplica la última fecha valor anterior |
 | Historial | Solo BCV. Sin importar histórico previo: empieza cuando arranque la API |
 | Autenticación | Ninguna en los endpoints de lectura (datos públicos). Así no hay token dentro del APK |
 | Compatibilidad | `tasas-sync-api` sigue activa hasta que toda la familia tenga la app 2.0; luego se apaga |
@@ -63,8 +64,8 @@ Tasa BCV **vigente** en esa fecha:
 }
 ```
 
-- Regla propuesta (a confirmar): la vigente es la de mayor `valueDate` que sea
-  `<= date`. Cubre fines de semana y feriados, en los que no hay publicación.
+- Regla (confirmada): la vigente es la de mayor `valueDate` que sea `<= date`.
+  Cubre fines de semana y feriados, en los que no hay publicación.
 - `404` si la fecha es anterior al primer registro guardado, con un mensaje
   en español.
 - `400` si la fecha es inválida o futura.
