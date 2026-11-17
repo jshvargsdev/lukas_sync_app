@@ -73,10 +73,4 @@ class CustomRatesStore extends ChangeNotifier {
     notifyListeners();
     await _persist();
   }
-
-  Future<void> reorder(List<CustomRate> newOrder) async {
-    _rates = List.of(newOrder);
-    notifyListeners();
-    await _persist();
-  }
 }

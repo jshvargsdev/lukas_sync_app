@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
 import '../theme/app_theme.dart';
-import 'reorder_rates_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -15,7 +14,7 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Ajustes')),
       body: AnimatedBuilder(
-        animation: Listenable.merge([appSettings, customRatesStore]),
+        animation: appSettings,
         builder: (context, _) {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -47,34 +46,6 @@ class SettingsScreen extends StatelessWidget {
                   onSelectionChanged: (s) => appSettings.setThemeMode(s.first),
                 ),
               ),
-              if (customRatesStore.rates.length >= 2) ...[
-                const _SectionHeader('Tasas personalizadas'),
-                _Card(
-                  child: ListTile(
-                    leading: Icon(Icons.swap_vert_rounded, color: p.accent),
-                    title: Text(
-                      'Reordenar tasas',
-                      style: TextStyle(
-                        color: p.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Arrastra para cambiar el orden',
-                      style: TextStyle(color: p.textSecondary, fontSize: 13),
-                    ),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      color: p.textTertiary,
-                    ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ReorderRatesScreen(),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 32),
               const _Footer(),
             ],
