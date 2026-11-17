@@ -64,4 +64,56 @@ void main() {
     expect(formatVes(1234567.891), '1.234.567,89');
     expect(formatVes(0), '0,00');
   });
+
+  group('formatRate', () {
+    test('desde 1 Bs usa 2 decimales', () {
+      expect(formatRate(236.4583), '236,46');
+      expect(formatRate(1), '1,00');
+      expect(formatRate(1234.5), '1.234,50');
+    });
+
+    test('por debajo de 1 Bs muestra 2 cifras significativas', () {
+      expect(formatRate(0.061), '0,061');
+      expect(formatRate(0.0612345), '0,061');
+      expect(formatRate(0.5), '0,50');
+      expect(formatRate(0.00045), '0,00045');
+    });
+
+    test('nunca pasa de 6 decimales', () {
+      expect(formatRate(0.0000001234), '0,00');
+    });
+
+    test('tasas inválidas se muestran como 0,00', () {
+      expect(formatRate(0), '0,00');
+      expect(formatRate(-3), '0,00');
+      expect(formatRate(double.nan), '0,00');
+    });
+  });
+
+  group('parseRateInput', () {
+    test('acepta coma o punto como decimal', () {
+      expect(parseRateInput('36,5'), 36.5);
+      expect(parseRateInput('36.5'), 36.5);
+      expect(parseRateInput('0,061'), 0.061);
+      expect(parseRateInput(',5'), 0.5);
+      expect(parseRateInput('290'), 290);
+      expect(parseRateInput('290,'), 290);
+      expect(parseRateInput(' 12 '), 12);
+    });
+
+    test('rechaza texto inválido', () {
+      expect(parseRateInput(''), isNull);
+      expect(parseRateInput('abc'), isNull);
+      expect(parseRateInput('1,2,3'), isNull);
+      expect(parseRateInput('1.234,5'), isNull);
+      expect(parseRateInput('-5'), isNull);
+    });
+  });
+
+  test('formatRateForInput deja la tasa lista para editar', () {
+    expect(formatRateForInput(290), '290');
+    expect(formatRateForInput(36.5), '36,5');
+    expect(formatRateForInput(0.061), '0,061');
+    expect(parseRateInput(formatRateForInput(0.061)), 0.061);
+  });
 }

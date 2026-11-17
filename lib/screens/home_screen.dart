@@ -186,10 +186,10 @@ class _HomeScreenState extends State<HomeScreen> {
             if (!o.isVes && o.rateInVes > 0)
               ListTile(
                 leading: const Icon(Icons.percent_rounded),
-                title: Text('Copiar tasa ${formatVes(o.rateInVes)}'),
+                title: Text('Copiar tasa ${formatRate(o.rateInVes)}'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _copy(formatVes(o.rateInVes), 'Tasa');
+                  _copy(formatRate(o.rateInVes), 'Tasa');
                 },
               ),
             if (o.isCustom)
@@ -296,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
       key: ValueKey('tile-${o.id}'),
       icon: o.icon,
       name: o.name,
-      subtitle: o.isVes ? 'Moneda nacional' : 'Tasa ${formatVes(o.rateInVes)}',
+      subtitle: o.isVes ? 'Moneda nacional' : 'Tasa ${formatRate(o.rateInVes)}',
       amount: converted,
       onTap: () => _select(o.id),
       onCopy: () => _copy(converted, 'Monto'),
@@ -307,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _rateCaption(CurrencyOption o) {
     if (o.isVes) return 'Moneda nacional';
     if (o.rateInVes <= 0) return 'Tasa no disponible';
-    return '1 ${o.name} = ${formatVes(o.rateInVes)} Bs';
+    return '1 ${o.name} = ${formatRate(o.rateInVes)} Bs';
   }
 
   Widget _buildList(

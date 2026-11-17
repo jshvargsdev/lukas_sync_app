@@ -58,7 +58,6 @@ class _AddRateModalContentState extends State<_AddRateModalContent> {
   final _nameController = TextEditingController();
   final _valueController = TextEditingController();
   String _icon = '🇺🇸';
-  String _rawValue = '0';
   String? _error;
 
   bool get _isEditing => widget.initialData != null;
@@ -70,40 +69,19 @@ class _AddRateModalContentState extends State<_AddRateModalContent> {
     if (initial != null) {
       _nameController.text = initial.name;
       _icon = initial.icon;
-      final cents = Rates.parseRate(initial.value) * 100;
-      _rawValue = cents.round().toString();
+      final rate = Rates.parseRate(initial.value);
+      if (rate > 0) _valueController.text = formatRateForInput(rate);
     }
-    _valueController.text = _displayValue;
-    _valueController.addListener(_handleValueChanged);
   }
 
   @override
   void dispose() {
-    _valueController.removeListener(_handleValueChanged);
     _nameController.dispose();
     _valueController.dispose();
     super.dispose();
   }
 
-  double get _numericValue => centsInputToAmount(_rawValue);
-
-  String get _displayValue => formatVes(_numericValue);
-
-  /// El campo se escribe en centavos y se reformatea a 1.234,56 al vuelo.
-  void _handleValueChanged() {
-    final digitsOnly = _valueController.text.replaceAll(RegExp(r'\D'), '');
-    var next = digitsOnly.isEmpty ? '0' : digitsOnly;
-    next = next.replaceFirst(RegExp(r'^0+(?=\d)'), '');
-    if (next.length > 12) next = _rawValue;
-    if (next != _rawValue) setState(() => _rawValue = next);
-    final desired = _displayValue;
-    if (_valueController.text != desired) {
-      _valueController.value = TextEditingValue(
-        text: desired,
-        selection: TextSelection.collapsed(offset: desired.length),
-      );
-    }
-  }
+  double? get _parsedValue => parseRateInput(_valueController.text);
 
   void _handleSave() {
     final name = _nameController.text.trim();
@@ -111,16 +89,15 @@ class _AddRateModalContentState extends State<_AddRateModalContent> {
       setState(() => _error = 'Escribe un nombre para la tasa.');
       return;
     }
-    if (_numericValue <= 0) {
-      setState(() => _error = 'El valor debe ser mayor que 0.');
+    final value = _parsedValue;
+    if (value == null || value <= 0) {
+      setState(
+        () => _error = 'Escribe un valor mayor que 0, por ejemplo 36,50.',
+      );
       return;
     }
     widget.onSave(
-      AddRateModalResult(
-        name: name,
-        value: _numericValue.toString(),
-        icon: _icon,
-      ),
+      AddRateModalResult(name: name, value: value.toString(), icon: _icon),
     );
   }
 
@@ -211,11 +188,9 @@ class _AddRateModalContentState extends State<_AddRateModalContent> {
           _Label('Valor en bolívares'),
           TextField(
             controller: _valueController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: (_) {
-              if (_error != null) setState(() => _error = null);
-            },
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [_RateInputFormatter()],
+            onChanged: (_) => setState(() => _error = null),
             style: TextStyle(
               color: p.textPrimary,
               fontSize: 20,
@@ -235,6 +210,16 @@ class _AddRateModalContentState extends State<_AddRateModalContent> {
                 ),
               ),
               prefixIconConstraints: const BoxConstraints(minWidth: 0),
+              hintText: '0,00',
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 8),
+            child: Text(
+              _parsedValue != null && _parsedValue! > 0
+                  ? '1 unidad = ${formatRate(_parsedValue!)} Bs'
+                  : 'Usa coma para los decimales. Ej. 36,50 o 0,061',
+              style: TextStyle(color: p.textTertiary, fontSize: 13),
             ),
           ),
           const SizedBox(height: 16),
@@ -321,5 +306,19 @@ class _Label extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Solo dígitos y un separador decimal (coma o punto), con hasta
+/// [kMaxRateDecimals] decimales y 9 dígitos enteros.
+class _RateInputFormatter extends TextInputFormatter {
+  static final _pattern = RegExp('^\\d{0,9}([.,]\\d{0,$kMaxRateDecimals})?\$');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return _pattern.hasMatch(newValue.text) ? newValue : oldValue;
   }
 }

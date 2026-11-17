@@ -110,4 +110,40 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getInt('@lukas_theme_mode'), ThemeMode.dark.index);
   });
+
+  testWidgets('se puede crear una tasa menor a 1 Bs sin perder decimales', (
+    tester,
+  ) async {
+    await pumpApp(tester, FakeRateSource(next: sampleRates()));
+    addTearDown(() async {
+      for (final r in customRatesStore.rates) {
+        await customRatesStore.delete(r.id);
+      }
+    });
+
+    await tester.scrollUntilVisible(
+      find.text('Agregar tasa personalizada'),
+      200,
+    );
+    await tester.tap(find.text('Agregar tasa personalizada'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'Peso colombiano');
+    await tester.enterText(find.byType(TextField).at(1), '0,061');
+    await tester.pump();
+    expect(find.text('1 unidad = 0,061 Bs'), findsOneWidget);
+
+    // Letras o un segundo separador se ignoran.
+    await tester.enterText(find.byType(TextField).at(1), '0,06a1');
+    await tester.pump();
+    expect(find.text('0,061'), findsOneWidget);
+
+    await tester.tap(find.text('Agregar tasa'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+
+    expect(customRatesStore.rates.single.value, '0.061');
+    // Al crearla queda activa: el caption muestra la tasa completa.
+    expect(find.text('1 Peso colombiano = 0,061 Bs'), findsOneWidget);
+  });
 }
