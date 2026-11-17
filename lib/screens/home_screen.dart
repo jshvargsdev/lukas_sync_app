@@ -1,20 +1,18 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../main.dart';
 import '../models/custom_rate.dart';
-import '../services/rate_service.dart';
+import '../domain/converter.dart';
+import '../domain/currency.dart';
+import '../models/rates.dart';
 import '../widgets/add_rate_card.dart';
 import '../widgets/add_rate_modal.dart';
 import '../widgets/currency_card.dart';
 import '../widgets/custom_keypad.dart';
 import 'settings_screen.dart';
 
-const _kRatesCacheKey = '@lukas_rates_cache';
 const _kLongPressHintKey = '@lukas_longpress_hint_shown';
 
 class HomeScreen extends StatefulWidget {
@@ -25,70 +23,38 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final RateService _service = RateService();
-
-  String _dolarBcv = '0.00';
-  String _euroBcv = '0.00';
-  String _usdtBinance = '0.00';
-  DateTime _lastUpdated = DateTime.now();
-  bool _hasRates = false;
-  String _activeCurrency = 'VES';
+  String _activeCurrency = kVesId;
   String _inputValue = '0';
-  bool _isLoading = true;
-
-  Timer? _ratesTimer;
 
   List<CustomRate> get _customRates => customRatesStore.rates;
-
-  static final NumberFormat _veFormat = NumberFormat.decimalPatternDigits(
-    locale: 'es_VE',
-    decimalDigits: 2,
-  );
 
   @override
   void initState() {
     super.initState();
-    _bootstrap();
-    _scheduleRatesTimer();
-    appSettings.addListener(_onSettingsChanged);
+    ratesController.addListener(_onRatesChanged);
     customRatesStore.addListener(_onCustomRatesChanged);
-  }
-
-  Future<void> _bootstrap() async {
-    await _loadCachedRates();
-    await _loadAllData();
   }
 
   @override
   void dispose() {
-    appSettings.removeListener(_onSettingsChanged);
+    ratesController.removeListener(_onRatesChanged);
     customRatesStore.removeListener(_onCustomRatesChanged);
-    _ratesTimer?.cancel();
     super.dispose();
+  }
+
+  void _onRatesChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onCustomRatesChanged() {
     if (!mounted) return;
     setState(() {
-      if (_activeCurrency != 'VES' &&
-          _activeCurrency != 'USD' &&
-          _activeCurrency != 'EUR' &&
-          _activeCurrency != 'USDT' &&
+      if (!kOfficialIds.contains(_activeCurrency) &&
           !customRatesStore.rates.any((r) => r.id == _activeCurrency)) {
-        _activeCurrency = 'VES';
+        _activeCurrency = kVesId;
         _inputValue = '0';
       }
     });
-  }
-
-  void _scheduleRatesTimer() {
-    _ratesTimer?.cancel();
-    _ratesTimer = Timer.periodic(
-        appSettings.refreshInterval, (_) => _fetchRates());
-  }
-
-  void _onSettingsChanged() {
-    _scheduleRatesTimer();
   }
 
   Future<void> _openSettings() async {
@@ -97,68 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _loadCachedRates() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_kRatesCacheKey);
-      if (raw == null) return;
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() {
-        _dolarBcv = json['dolarBcv'] as String? ?? _dolarBcv;
-        _euroBcv = json['euroBcv'] as String? ?? _euroBcv;
-        _usdtBinance = json['usdtBinance'] as String? ?? _usdtBinance;
-        final ts = json['fetchedAt'] as String?;
-        if (ts != null) {
-          _lastUpdated = DateTime.tryParse(ts)?.toLocal() ?? _lastUpdated;
-        }
-        _hasRates = true;
-      });
-    } catch (e) {
-      debugPrint('Error cargando cache de tasas: $e');
-    }
-  }
-
-  Future<void> _persistRatesCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _kRatesCacheKey,
-        jsonEncode({
-          'dolarBcv': _dolarBcv,
-          'euroBcv': _euroBcv,
-          'usdtBinance': _usdtBinance,
-          'fetchedAt': _lastUpdated.toUtc().toIso8601String(),
-        }),
-      );
-    } catch (e) {
-      debugPrint('Error guardando cache de tasas: $e');
-    }
-  }
-
-  Future<void> _fetchRates() async {
-    try {
-      final rates = await _service.fetchRates();
-      if (!mounted) return;
-      setState(() {
-        _dolarBcv = rates.dolarBcv;
-        _euroBcv = rates.euroBcv;
-        _usdtBinance = rates.usdtBinance;
-        _lastUpdated = rates.fetchedAt;
-        _hasRates = true;
-      });
-      await _persistRatesCache();
-    } catch (e) {
-      debugPrint('Error obteniendo tasas: $e');
-    }
-  }
-
-  Future<void> _loadAllData() async {
-    setState(() => _isLoading = true);
-    await _fetchRates();
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-  }
+  Future<void> _loadAllData() => ratesController.refresh();
 
   void _handleKeyPress(String key) {
     if (key == '.') return;
@@ -182,38 +87,22 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _inputValue = '0');
   }
 
+  List<CurrencyOption> get _options => buildCurrencyOptions(
+        rates: ratesController.rates,
+        customRates: _customRates,
+      );
+
   String _getCalculatedAmount(String targetCurrency) {
-    final inputNum = (int.tryParse(_inputValue) ?? 0) / 100.0;
-
-    if (targetCurrency == _activeCurrency) {
-      return _veFormat.format(inputNum);
-    }
-
-    final Map<String, double> rates = {
-      'USD': double.tryParse(_dolarBcv) ?? 1,
-      'EUR': double.tryParse(_euroBcv) ?? 1,
-      'USDT': double.tryParse(_usdtBinance) ?? 1,
-    };
-    for (final r in _customRates) {
-      rates[r.id] = double.tryParse(r.value) ?? 0;
-    }
-
-    double amountInVES = 0;
-    if (_activeCurrency == 'VES') {
-      amountInVES = inputNum;
-    } else if (rates.containsKey(_activeCurrency)) {
-      amountInVES = inputNum * rates[_activeCurrency]!;
-    }
-
-    double finalAmount = 0;
-    if (targetCurrency == 'VES') {
-      finalAmount = amountInVES;
-    } else if (rates.containsKey(targetCurrency)) {
-      final r = rates[targetCurrency]!;
-      if (r != 0) finalAmount = amountInVES / r;
-    }
-
-    return _veFormat.format(finalAmount);
+    final inputNum = centsInputToAmount(_inputValue);
+    if (targetCurrency == _activeCurrency) return formatVes(inputNum);
+    final options = _options;
+    double rateOf(String id) =>
+        options.firstWhere((o) => o.id == id).rateInVes;
+    return formatVes(convertAmount(
+      amount: inputNum,
+      fromRateInVes: rateOf(_activeCurrency),
+      toRateInVes: rateOf(targetCurrency),
+    ));
   }
 
   void _onSelectCurrency(String id) {
@@ -284,10 +173,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return formatter.format(dt);
   }
 
-  bool get _isStale =>
-      _hasRates &&
-      !_isLoading &&
-      DateTime.now().difference(_lastUpdated) > const Duration(hours: 2);
+  bool get _hasRates => ratesController.hasRates;
+  bool get _isLoading => ratesController.isLoading;
+  bool get _isStale => ratesController.isStale;
+  DateTime get _lastUpdated =>
+      ratesController.rates?.fetchedAt ?? DateTime.now();
+  String get _dolarBcv => formatVes(ratesController.rates?.dolarBcv ?? 0);
+  String get _euroBcv => formatVes(ratesController.rates?.euroBcv ?? 0);
+  String get _usdtBinance =>
+      formatVes(ratesController.rates?.usdtBinance ?? 0);
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPress: () => _onSelectCurrency('USDT'),
                 ),
                 ..._customRates.map((rate) {
-                  final rateNum = double.tryParse(rate.value) ?? 0;
+                  final rateNum = Rates.parseRate(rate.value);
                   return _AnimatedAppearance(
                     key: ValueKey('custom-${rate.id}'),
                     child: CurrencyCard(
@@ -476,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: rate.name,
                       amount: _getCalculatedAmount(rate.id),
                       variation:
-                          'Tasa: ${_veFormat.format(rateNum)}',
+                          'Tasa: ${formatVes(rateNum)}',
                       icon: rate.icon,
                       isActive: _activeCurrency == rate.id,
                       onPress: () => _onSelectCurrency(rate.id),

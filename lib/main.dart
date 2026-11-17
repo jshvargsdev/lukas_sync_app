@@ -6,9 +6,17 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'screens/home_screen.dart';
 import 'services/app_settings.dart';
 import 'services/custom_rates_store.dart';
+import 'services/rate_source.dart';
+import 'services/rates_controller.dart';
 
 final AppSettings appSettings = AppSettings();
 final CustomRatesStore customRatesStore = CustomRatesStore();
+
+/// Se reasigna en los tests para usar una fuente de tasas falsa.
+RatesController ratesController = RatesController(
+  source: ApiRateSource(),
+  settings: appSettings,
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +26,7 @@ Future<void> main() async {
   await appSettings.load();
   await customRatesStore.load();
   runApp(const LukasSyncApp());
+  ratesController.start();
 }
 
 Future<void> _applyOrientationPolicy() async {
