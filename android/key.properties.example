@@ -1,0 +1,8 @@
+# Copia este archivo a android/key.properties (ignorado por git) y completa.
+# El keystore NO va en el repo: guárdalo en un lugar seguro con respaldo.
+# Si pierdes el keystore o su clave, no podrás publicar actualizaciones que
+# se instalen encima de la versión que ya tienen los usuarios.
+storeFile=/ruta/absoluta/al/lukas-sync-release.jks
+storePassword=
+keyAlias=
+keyPassword=

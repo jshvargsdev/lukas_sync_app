@@ -64,6 +64,26 @@ flutter build appbundle --release      # AAB para Play Store
 flutter build ios --release            # iOS (requiere macOS + Xcode)
 ```
 
+## Firma
+
+El APK release se firma con la llave de release si existe `android/key.properties`
+(ignorado por git). Si no existe, se firma con la llave de debug de la máquina.
+
+1. Copia `android/key.properties.example` a `android/key.properties` y completa
+   la ruta al keystore y sus claves.
+2. El keystore **no va en el repo**. Guárdalo, junto con su clave, en un lugar
+   seguro con respaldo: sin él no se pueden publicar actualizaciones que se
+   instalen encima de la versión que ya tienen los usuarios.
+
+Huella SHA-256 del certificado de release:
+`41:0C:E2:A2:9F:46:33:DD:B0:9D:EF:9A:5C:E8:C3:3D:61:5E:DE:27:E4:4E:02:86:70:9A:F8:27:7B:10:45:05`
+
+Para comprobar la firma de un APK:
+
+```bash
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
+```
+
 ## Formato esperado de la API
 
 El endpoint configurado en `RATES_API_URL` debe responder a `GET` con el header `Authorization: Bearer <RATES_API_TOKEN>` y devolver JSON con la siguiente estructura:
