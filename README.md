@@ -26,6 +26,8 @@ de iOS existe pero no se ha probado, y el widget es solo para Android.
   hora. Se actualiza cuando la app descarga tasas y cada hora en segundo plano.
 - Refresco cada hora con la app abierta y al volver a ella; refresco manual
   con el botón o deslizando hacia abajo. Caché local para funcionar sin conexión.
+- **Actualizaciones desde la app**: avisa cuando hay un release nuevo en
+  GitHub, descarga el APK del teléfono y abre el instalador.
 - Tema claro / oscuro / sistema desde el botón de apariencia del Home.
 - Formato venezolano de números y fechas (`es_VE`).
 
@@ -64,6 +66,33 @@ flutter build apk --release --split-per-abi
 Genera un APK por arquitectura en `build/app/outputs/flutter-apk/`. Para casi
 todos los teléfonos actuales sirve `app-arm64-v8a-release.apk`. Sin
 `--split-per-abi` se genera un único APK universal, unas tres veces más pesado.
+
+## Publicar una versión
+
+La app busca versiones nuevas en los
+[Releases](https://github.com/jshvargsdev/lukas_sync_app/releases) de este repo
+(`releases/latest`), así que publicar es crear un release:
+
+1. Sube `version` en `pubspec.yaml` (p. ej. `2.1.0+3` → `2.2.0+4`; el número
+   después de `+` siempre debe subir).
+2. `flutter analyze && flutter test`.
+3. `flutter build apk --release --split-per-abi` (con `android/key.properties`
+   presente: si se firma con otra llave, la actualización no se instala).
+4. Crea el release con tag `v<versión>`, los tres APK con su nombre original
+   (`app-<abi>-release.apk`) y las notas en español, que la app muestra tal cual:
+
+   ```bash
+   gh-personal release create v2.2.0 \
+     build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+     build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+     build/app/outputs/flutter-apk/app-x86_64-release.apk \
+     --title "Lukas Sync 2.2.0" --notes-file notas.md
+   ```
+
+Las apps instaladas lo detectan en un máximo de 6 horas (o al tocar *Buscar
+actualizaciones* en Apariencia). No publiques un release como "latest" si no
+quieres que todos lo reciban: para pruebas usa `--prerelease`, que la API de
+`releases/latest` ignora.
 
 ## Firma
 

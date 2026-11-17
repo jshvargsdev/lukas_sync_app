@@ -14,6 +14,7 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
 | Verificación (obligatoria antes de commit) | `flutter analyze && flutter test` |
 | Correr en el teléfono | `flutter run` |
 | APK para distribuir | `flutter build apk --release --split-per-abi` |
+| Publicar versión | Ver README > *Publicar una versión*. Crear el release es publicar: mostrar las notas y pedir OK antes. |
 
 - `adb` está en `~/Android/Sdk/platform-tools/adb`.
 - El JDK es el de Android Studio (Java 25): Gradle debe ser 9.1+.
@@ -29,6 +30,9 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
   `SharedPreferences` (`@lukas_multi_rates`, `@lukas_theme_mode`,
   `@lukas_rates_cache`, …) ni su formato sin una lectura compatible con el
   anterior: la gente actualiza instalando encima.
+- **Actualizaciones**: la app lee `releases/latest` de este repo y descarga el
+  asset `app-<abi>-release.apk`. No cambiar esos nombres ni el formato del tag
+  (`vX.Y.Z`) sin actualizar `lib/domain/app_release.dart`. El repo es público.
 - **Firma**: el release se firma con la llave de `android/key.properties`
   (keystore en `~/Personal/.keys/`, fuera del repo). Nunca commitear ni
   regenerar la llave: con otra llave las actualizaciones no se instalan encima.
