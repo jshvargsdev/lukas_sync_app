@@ -14,7 +14,7 @@ Flutter no está en el PATH: usar `export PATH=~/fvm/default/bin:$PATH`.
 | Verificación (obligatoria antes de commit) | `flutter analyze && flutter test` |
 | Correr en el teléfono | `flutter run --dart-define-from-file=config/prod.json` |
 | APK para distribuir | `scripts/build_release.sh` (nunca `flutter build` a secas: saldría sin URL de la API) |
-| Publicar versión | Ver README > *Publicar una versión*, usando `gh-personal` en vez de `gh`. Crear el release es publicar: mostrar las notas y pedir OK antes. |
+| Publicar versión | Ver `docs/publicar.md`, usando `gh-personal` en vez de `gh`. Crear el release es publicar: mostrar las notas y pedir OK antes. |
 
 - `adb` está en `~/Android/Sdk/platform-tools/adb`.
 - El JDK es el de Android Studio (Java 25): Gradle debe ser 9.1+.

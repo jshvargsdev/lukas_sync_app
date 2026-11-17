@@ -14,7 +14,7 @@ if grep -q "example.com" config/prod.json; then
   exit 1
 fi
 if [[ ! -f android/key.properties ]]; then
-  echo "Falta android/key.properties (llave de release, ver README > Firma)." >&2
+  echo "Falta android/key.properties (llave de release, ver docs/publicar.md > Firma)." >&2
   exit 1
 fi
 

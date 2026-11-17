@@ -9,7 +9,7 @@ plugins {
 
 // Llave de release: android/key.properties (ignorado por git) apunta al
 // keystore, que vive fuera del repo. Si no existe, el release se firma con la
-// llave de debug para que cualquiera pueda compilar. Ver README > Firma.
+// llave de debug para que cualquiera pueda compilar. Ver docs/publicar.md > Firma.
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("key.properties")
     if (file.exists()) file.inputStream().use { load(it) }
