@@ -85,6 +85,7 @@ class UpdateController extends ChangeNotifier with WidgetsBindingObserver {
     if (!enabled || _started) return;
     _started = true;
     WidgetsBinding.instance.addObserver(this);
+    await _deleteOldDownloads();
     final prefs = await SharedPreferences.getInstance();
     _dismissed = prefs.getString(_kDismissedKey);
     final cached = prefs.getString(_kLatestKey);
@@ -98,6 +99,20 @@ class UpdateController extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     await check();
+  }
+
+  /// Borra los APK de descargas anteriores: si la app volvió a arrancar, la
+  /// instalación ya terminó (o se abandonó) y el archivo solo ocupa espacio.
+  Future<void> _deleteOldDownloads() async {
+    try {
+      final dir = Directory(await _platform.downloadDir());
+      if (!await dir.exists()) return;
+      await for (final f in dir.list()) {
+        if (f is File && f.path.endsWith('.apk')) await f.delete();
+      }
+    } catch (e) {
+      debugPrint('No se pudieron borrar descargas viejas: $e');
+    }
   }
 
   @override

@@ -148,6 +148,15 @@ void main() {
     expect(updated.showBanner, isFalse);
   });
 
+  test('al arrancar borra los APK descargados antes', () async {
+    final old = File('${tmp.path}/app-arm64-v8a-release.apk')
+      ..writeAsBytesSync([1, 2, 3]);
+    final other = File('${tmp.path}/nota.txt')..writeAsStringSync('x');
+    await build().start();
+    expect(old.existsSync(), isFalse);
+    expect(other.existsSync(), isTrue);
+  });
+
   test('deshabilitado (debug) no consulta nada', () async {
     final c = build(enabled: false);
     await c.start();
