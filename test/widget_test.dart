@@ -95,4 +95,19 @@ void main() {
     expect(copied, '273,88');
     expect(find.text('Monto copiado: 273,88'), findsOneWidget);
   });
+
+  testWidgets('el botón de apariencia del Home cambia el tema', (tester) async {
+    await pumpApp(tester, FakeRateSource(next: sampleRates()));
+    addTearDown(() => appSettings.setThemeMode(ThemeMode.system));
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+
+    await tester.tap(find.byTooltip('Apariencia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Oscuro'));
+    await tester.pumpAndSettle();
+
+    expect(appSettings.themeMode, ThemeMode.dark);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('@lukas_theme_mode'), ThemeMode.dark.index);
+  });
 }

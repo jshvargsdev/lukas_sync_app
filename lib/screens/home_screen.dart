@@ -12,10 +12,10 @@ import '../models/custom_rate.dart';
 import '../theme/app_theme.dart';
 import '../widgets/add_rate_card.dart';
 import '../widgets/add_rate_modal.dart';
+import '../widgets/appearance_sheet.dart';
 import '../widgets/amount_hero.dart';
 import '../widgets/currency_tile.dart';
 import '../widgets/custom_keypad.dart';
-import 'settings_screen.dart';
 
 const _kLongPressHintKey = '@lukas_longpress_hint_shown';
 
@@ -208,10 +208,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _openSettings() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
-
   // --- UI ------------------------------------------------------------------
 
   @override
@@ -242,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final isWide = constraints.maxWidth >= _kWideLayout;
             final content = Column(
               children: [
-                _Header(onSettings: _openSettings),
+                _Header(onAppearance: () => showAppearanceSheet(context)),
                 _NoticeBanner(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -375,9 +371,9 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _Header extends StatelessWidget {
-  final VoidCallback onSettings;
+  final VoidCallback onAppearance;
 
-  const _Header({required this.onSettings});
+  const _Header({required this.onAppearance});
 
   @override
   Widget build(BuildContext context) {
@@ -458,10 +454,16 @@ class _Header extends StatelessWidget {
                   )
                 : Icon(Icons.refresh_rounded, color: p.textSecondary),
           ),
-          IconButton(
-            tooltip: 'Ajustes',
-            onPressed: onSettings,
-            icon: Icon(Icons.settings_outlined, color: p.textSecondary),
+          ListenableBuilder(
+            listenable: appSettings,
+            builder: (context, _) => IconButton(
+              tooltip: 'Apariencia',
+              onPressed: onAppearance,
+              icon: Icon(
+                themeModeIcon(appSettings.themeMode),
+                color: p.textSecondary,
+              ),
+            ),
           ),
         ],
       ),
