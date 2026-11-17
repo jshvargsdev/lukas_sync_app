@@ -1,19 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../main.dart';
-import '../models/custom_rate.dart';
 import '../domain/converter.dart';
 import '../domain/currency.dart';
-import '../models/rates.dart';
+import '../domain/time_format.dart';
+import '../main.dart';
+import '../models/custom_rate.dart';
+import '../theme/app_theme.dart';
 import '../widgets/add_rate_card.dart';
 import '../widgets/add_rate_modal.dart';
-import '../widgets/currency_card.dart';
+import '../widgets/amount_hero.dart';
+import '../widgets/currency_tile.dart';
 import '../widgets/custom_keypad.dart';
 import 'settings_screen.dart';
 
 const _kLongPressHintKey = '@lukas_longpress_hint_shown';
+
+/// Ancho a partir del cual el teclado pasa a la derecha.
+const double _kWideLayout = 720;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,109 +29,95 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _activeCurrency = kVesId;
-  String _inputValue = '0';
+  String _activeId = kVesId;
+  String _input = '0';
 
-  List<CustomRate> get _customRates => customRatesStore.rates;
+  /// Refresca el texto "hace X min" aunque no lleguen datos nuevos.
+  Timer? _clock;
 
   @override
   void initState() {
     super.initState();
-    ratesController.addListener(_onRatesChanged);
+    ratesController.addListener(_rebuild);
     customRatesStore.addListener(_onCustomRatesChanged);
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) => _rebuild());
   }
 
   @override
   void dispose() {
-    ratesController.removeListener(_onRatesChanged);
+    ratesController.removeListener(_rebuild);
     customRatesStore.removeListener(_onCustomRatesChanged);
+    _clock?.cancel();
     super.dispose();
   }
 
-  void _onRatesChanged() {
+  void _rebuild() {
     if (mounted) setState(() {});
   }
 
   void _onCustomRatesChanged() {
     if (!mounted) return;
     setState(() {
-      if (!kOfficialIds.contains(_activeCurrency) &&
-          !customRatesStore.rates.any((r) => r.id == _activeCurrency)) {
-        _activeCurrency = kVesId;
-        _inputValue = '0';
+      final exists =
+          kOfficialIds.contains(_activeId) ||
+          customRatesStore.rates.any((r) => r.id == _activeId);
+      if (!exists) {
+        _activeId = kVesId;
+        _input = '0';
       }
     });
   }
 
-  Future<void> _openSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    );
-  }
+  List<CurrencyOption> get _options => buildCurrencyOptions(
+    rates: ratesController.rates,
+    customRates: customRatesStore.rates,
+  );
 
-  Future<void> _loadAllData() => ratesController.refresh();
+  // --- Teclado -------------------------------------------------------------
 
   void _handleKeyPress(String key) {
-    if (key == '.') return;
     setState(() {
-      final prev = _inputValue;
-      if (prev == '0' && (key == '0' || key == '00')) return;
-      final next = prev == '0' ? key : prev + key;
+      if (_input == '0' && key == '0') return;
+      final next = _input == '0' ? key : _input + key;
       if (next.length > 12) return;
-      _inputValue = next;
+      _input = next;
     });
   }
 
   void _handleBackspace() {
     setState(() {
-      _inputValue =
-          _inputValue.length <= 1 ? '0' : _inputValue.substring(0, _inputValue.length - 1);
+      _input = _input.length <= 1
+          ? '0'
+          : _input.substring(0, _input.length - 1);
     });
   }
 
-  void _handleReset() {
-    setState(() => _inputValue = '0');
-  }
+  void _handleReset() => setState(() => _input = '0');
 
-  List<CurrencyOption> get _options => buildCurrencyOptions(
-        rates: ratesController.rates,
-        customRates: _customRates,
-      );
-
-  String _getCalculatedAmount(String targetCurrency) {
-    final inputNum = centsInputToAmount(_inputValue);
-    if (targetCurrency == _activeCurrency) return formatVes(inputNum);
-    final options = _options;
-    double rateOf(String id) =>
-        options.firstWhere((o) => o.id == id).rateInVes;
-    return formatVes(convertAmount(
-      amount: inputNum,
-      fromRateInVes: rateOf(_activeCurrency),
-      toRateInVes: rateOf(targetCurrency),
-    ));
-  }
-
-  void _onSelectCurrency(String id) {
+  void _select(String id) {
+    if (id == _activeId) return;
     setState(() {
-      _activeCurrency = id;
-      _inputValue = '0';
+      _activeId = id;
+      _input = '0';
     });
   }
 
-  Future<void> _openAddRateModal({CustomRate? editing}) async {
-    await showAddRateModal(
+  // --- Tasas personalizadas ------------------------------------------------
+
+  Future<void> _openRateSheet({CustomRate? editing}) {
+    return showAddRateModal(
       context: context,
       initialData: editing,
-      onSave: (r) => _handleSaveCustomRate(editing: editing, result: r),
-      onDelete: () => _handleDeleteCustomRate(editing: editing),
+      onSave: (r) => _saveCustomRate(editing: editing, result: r),
+      onDelete: () => _deleteCustomRate(editing),
     );
   }
 
-  Future<void> _handleSaveCustomRate({
+  Future<void> _saveCustomRate({
     required CustomRate? editing,
     required AddRateModalResult result,
   }) async {
-    final newActiveId = await customRatesStore.upsert(
+    final id = await customRatesStore.upsert(
       editing: editing,
       name: result.name,
       value: result.value,
@@ -133,13 +125,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!mounted) return;
     setState(() {
-      _activeCurrency = newActiveId;
-      _inputValue = '0';
+      _activeId = id;
+      _input = '0';
     });
     Navigator.of(context).maybePop();
-    if (editing == null) {
-      await _maybeShowLongPressHint();
-    }
+    if (editing == null) await _maybeShowLongPressHint();
+  }
+
+  Future<void> _deleteCustomRate(CustomRate? editing) async {
+    if (editing == null) return;
+    await customRatesStore.delete(editing.id);
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _maybeShowLongPressHint() async {
@@ -161,78 +158,77 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _handleDeleteCustomRate({required CustomRate? editing}) async {
-    if (editing == null) return;
-    await customRatesStore.delete(editing.id);
-    if (!mounted) return;
-    Navigator.of(context).maybePop();
-  }
+  Future<void> _openSettings() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
 
-  String _formatLastUpdated(DateTime dt) {
-    final formatter = DateFormat("d MMM, h:mm a", 'es_VE');
-    return formatter.format(dt);
-  }
-
-  bool get _hasRates => ratesController.hasRates;
-  bool get _isLoading => ratesController.isLoading;
-  bool get _isStale => ratesController.isStale;
-  DateTime get _lastUpdated =>
-      ratesController.rates?.fetchedAt ?? DateTime.now();
-  String get _dolarBcv => formatVes(ratesController.rates?.dolarBcv ?? 0);
-  String get _euroBcv => formatVes(ratesController.rates?.euroBcv ?? 0);
-  String get _usdtBinance =>
-      formatVes(ratesController.rates?.usdtBinance ?? 0);
+  // --- UI ------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final options = _options;
+    final active = options.firstWhere(
+      (o) => o.id == _activeId,
+      orElse: () => options.first,
+    );
+    final amount = centsInputToAmount(_input);
+
+    final keypadHeight = MediaQuery.sizeOf(context).height < 700
+        ? 44.0
+        : (MediaQuery.sizeOf(context).height < 800 ? 50.0 : 56.0);
+    final keypad = CustomKeypad(
+      onKeyPress: _handleKeyPress,
+      onBackspace: _handleBackspace,
+      onReset: _handleReset,
+      keyHeight: keypadHeight,
+    );
 
     return Scaffold(
-      backgroundColor: bg,
       body: SafeArea(
+        bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final isWide = width >= 720;
-            return Column(
+            final isWide = constraints.maxWidth >= _kWideLayout;
+            final content = Column(
               children: [
-                const SizedBox(height: 12),
-                _buildHeader(isDark),
-                const SizedBox(height: 12),
-                if (_isStale)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                    child: _StaleBanner(
-                      isDark: isDark,
-                      lastUpdated: _formatLastUpdated(_lastUpdated),
-                      onRefresh: _loadAllData,
+                _Header(onSettings: _openSettings),
+                _NoticeBanner(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: AmountHero(
+                    icon: active.icon,
+                    name: active.name,
+                    amount: formatVes(amount),
+                    caption: _rateCaption(active),
+                  ),
+                ),
+                Expanded(child: _buildList(options, active, amount)),
+              ],
+            );
+
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(child: content),
+                  SizedBox(
+                    width: 380,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: SafeArea(top: false, child: keypad),
                     ),
                   ),
-                if (isWide)
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _buildCardsArea(isDark)),
-                        SizedBox(
-                          width: 380,
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: CustomKeypad(
-                              onKeyPress: _handleKeyPress,
-                              onBackspace: _handleBackspace,
-                              onReset: _handleReset,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else ...[
-                  Expanded(child: _buildCardsArea(isDark)),
-                  _buildBoundedKeypad(width),
                 ],
+              );
+            }
+            return Column(
+              children: [
+                Expanded(child: content),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: SafeArea(top: false, child: keypad),
+                  ),
+                ),
               ],
             );
           },
@@ -241,54 +237,156 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+  String _rateCaption(CurrencyOption o) {
+    if (o.isVes) return 'Moneda nacional';
+    if (o.rateInVes <= 0) return 'Tasa no disponible';
+    return '1 ${o.name} = ${formatVes(o.rateInVes)} Bs';
+  }
+
+  Widget _buildList(
+    List<CurrencyOption> options,
+    CurrencyOption active,
+    double amount,
+  ) {
+    final p = context.palette;
+    final others = options.where((o) => o.id != active.id).toList();
+
+    return RefreshIndicator(
+      onRefresh: ratesController.refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
+              'EQUIVALE A',
+              style: TextStyle(
+                color: p.textTertiary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: p.border),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < others.length; i++) ...[
+                  if (i > 0) const Divider(indent: 68),
+                  CurrencyTile(
+                    key: ValueKey('tile-${others[i].id}'),
+                    icon: others[i].icon,
+                    name: others[i].name,
+                    subtitle: others[i].isVes
+                        ? 'Moneda nacional'
+                        : 'Tasa ${formatVes(others[i].rateInVes)}',
+                    amount: formatVes(
+                      convertAmount(
+                        amount: amount,
+                        fromRateInVes: active.rateInVes,
+                        toRateInVes: others[i].rateInVes,
+                      ),
+                    ),
+                    onTap: () => _select(others[i].id),
+                    onLongPress: others[i].isCustom
+                        ? () => _openRateSheet(editing: others[i].custom)
+                        : null,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (active.isCustom) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => _openRateSheet(editing: active.custom),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: Text('Editar ${active.name}'),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          AddRateTile(onPress: () => _openRateSheet()),
+        ],
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  final VoidCallback onSettings;
+
+  const _Header({required this.onSettings});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final c = ratesController;
+    final rates = c.rates;
+    final String status;
+    if (c.isLoading) {
+      status = 'Actualizando…';
+    } else if (rates != null) {
+      status = 'Actualizado ${formatAge(rates.fetchedAt, now: DateTime.now())}';
+    } else {
+      status = 'Sin tasas todavía';
+    }
+    final dotColor = c.errorMessage != null || c.isStale
+        ? p.warning
+        : (rates != null ? p.accent : p.textTertiary);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            child: Image.asset('assets/icon.png', width: 40, height: 40),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Lukas Sync',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 32,
+                    color: p.textPrimary,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    letterSpacing: -0.4,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Row(
                   children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        _hasRates
-                            ? _formatLastUpdated(_lastUpdated)
-                            : (_isLoading
-                                ? 'Cargando tasas…'
-                                : 'Sin conexión'),
+                        status,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 14,
+                          color: p.textSecondary,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: isDark
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF64748B),
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: _RefreshChip(
-                        isLoading: _isLoading,
-                        isDark: isDark,
-                        onPressed: _loadAllData,
                       ),
                     ),
                   ],
@@ -296,324 +394,79 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          _BrandSettingsButton(isDark: isDark, onTap: _openSettings),
+          IconButton(
+            tooltip: 'Actualizar',
+            onPressed: c.isLoading ? null : c.refresh,
+            icon: c.isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.refresh_rounded, color: p.textSecondary),
+          ),
+          IconButton(
+            tooltip: 'Ajustes',
+            onPressed: onSettings,
+            icon: Icon(Icons.settings_outlined, color: p.textSecondary),
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildCardsArea(bool isDark) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const horizontalPadding = 24.0;
-        const spacing = 12.0;
-        const targetWidth = 170.0;
-        final available = constraints.maxWidth - horizontalPadding * 2;
-        final columns =
-            (available / targetWidth).floor().clamp(2, 6).toInt();
-        final cardWidth =
-            (available - spacing * (columns - 1)) / columns;
-        return RefreshIndicator(
-          onRefresh: _loadAllData,
-          color: const Color(0xFF16A34A),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-                horizontalPadding, 0, horizontalPadding, 24),
-            child: Wrap(
-              spacing: spacing,
-              runSpacing: 16,
-              children: [
-                CurrencyCard(
-                  width: cardWidth,
-                  title: 'Bolívares',
-                  amount: _getCalculatedAmount('VES'),
-                  variation: 'Moneda Nacional',
-                  icon: '🇻🇪',
-                  isActive: _activeCurrency == 'VES',
-                  onPress: () => _onSelectCurrency('VES'),
-                ),
-                CurrencyCard(
-                  width: cardWidth,
-                  title: 'Dólar BCV',
-                  amount: _getCalculatedAmount('USD'),
-                  variation: 'Tasa: $_dolarBcv',
-                  icon: '🇺🇸',
-                  isActive: _activeCurrency == 'USD',
-                  onPress: () => _onSelectCurrency('USD'),
-                ),
-                CurrencyCard(
-                  width: cardWidth,
-                  title: 'Euro BCV',
-                  amount: _getCalculatedAmount('EUR'),
-                  variation: 'Tasa: $_euroBcv',
-                  icon: '🇪🇺',
-                  isActive: _activeCurrency == 'EUR',
-                  onPress: () => _onSelectCurrency('EUR'),
-                ),
-                CurrencyCard(
-                  width: cardWidth,
-                  title: 'USDT Binance',
-                  amount: _getCalculatedAmount('USDT'),
-                  variation: 'Tasa: $_usdtBinance',
-                  icon: '₮',
-                  isActive: _activeCurrency == 'USDT',
-                  onPress: () => _onSelectCurrency('USDT'),
-                ),
-                ..._customRates.map((rate) {
-                  final rateNum = Rates.parseRate(rate.value);
-                  return _AnimatedAppearance(
-                    key: ValueKey('custom-${rate.id}'),
-                    child: CurrencyCard(
-                      width: cardWidth,
-                      title: rate.name,
-                      amount: _getCalculatedAmount(rate.id),
-                      variation:
-                          'Tasa: ${formatVes(rateNum)}',
-                      icon: rate.icon,
-                      isActive: _activeCurrency == rate.id,
-                      onPress: () => _onSelectCurrency(rate.id),
-                      onLongPress: () =>
-                          _openAddRateModal(editing: rate),
-                    ),
-                  );
-                }),
-                AddRateCard(
-                  width: cardWidth,
-                  onPress: () => _openAddRateModal(),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBoundedKeypad(double width) {
-    final keypad = CustomKeypad(
-      onKeyPress: _handleKeyPress,
-      onBackspace: _handleBackspace,
-      onReset: _handleReset,
-    );
-    if (width < 560) return keypad;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: keypad,
-      ),
-    );
-  }
 }
 
-class _AnimatedAppearance extends StatelessWidget {
-  final Widget child;
-  const _AnimatedAppearance({super.key, required this.child});
-
+/// Aviso cuando el último refresco falló o los datos tienen más de 2 horas.
+class _NoticeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutBack,
-      builder: (context, t, c) {
-        final scale = 0.85 + (0.15 * t.clamp(0.0, 1.0));
-        return Opacity(
-          opacity: t.clamp(0.0, 1.0),
-          child: Transform.scale(scale: scale, child: c),
-        );
-      },
-      child: child,
-    );
-  }
-}
+    final p = context.palette;
+    final c = ratesController;
+    final error = c.errorMessage;
+    if (c.isLoading || (error == null && !c.isStale)) {
+      return const SizedBox.shrink();
+    }
 
-class _BrandSettingsButton extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onTap;
+    final noData = !c.hasRates;
+    final fg = noData ? p.danger : p.warning;
+    final bg = noData ? p.dangerSoft : p.warningSoft;
+    final message = noData
+        ? '$error'
+        : (error != null
+              ? 'No se pudo actualizar. Mostrando datos del '
+                    '${formatDateTime(c.rates!.fetchedAt)}.'
+              : 'Las tasas tienen más de 2 horas.');
 
-  const _BrandSettingsButton({required this.isDark, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final badgeBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final badgeIcon =
-        isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569);
-    final badgeBorder =
-        isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-
-    return Tooltip(
-      message: 'Ajustes',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: 60,
-            height: 60,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: 2,
-                  top: 2,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/icon.png',
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: badgeBg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: badgeBorder, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.settings,
-                      size: 12,
-                      color: badgeIcon,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
-      ),
-    );
-  }
-}
-
-class _StaleBanner extends StatelessWidget {
-  final bool isDark;
-  final String lastUpdated;
-  final VoidCallback onRefresh;
-
-  const _StaleBanner({
-    required this.isDark,
-    required this.lastUpdated,
-    required this.onRefresh,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0x33713F12) : const Color(0xFFFFFBEB);
-    final borderColor =
-        isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A);
-    final fg = isDark ? const Color(0xFFFCD34D) : const Color(0xFF92400E);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          Icon(Icons.cloud_off_outlined, size: 18, color: fg),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Datos del $lastUpdated',
-              maxLines: 2,
-              style: TextStyle(
-                color: fg,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onRefresh,
-            style: TextButton.styleFrom(
-              foregroundColor: fg,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'Reintentar',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RefreshChip extends StatelessWidget {
-  final bool isLoading;
-  final bool isDark;
-  final VoidCallback onPressed;
-
-  const _RefreshChip({
-    required this.isLoading,
-    required this.isDark,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color bg =
-        isDark ? const Color(0x3314532D) : const Color(0xFFDCFCE7);
-    final Color borderColor =
-        isDark ? const Color(0xFF15803D) : const Color(0xFFBBF7D0);
-    final Color fg =
-        isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isLoading ? null : onPressed,
-        borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: borderColor),
-          ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: isLoading
-                    ? CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(fg),
-                      )
-                    : Icon(Icons.refresh, size: 16, color: fg),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isLoading ? 'Cargando' : 'Actualizar',
+        padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 18, color: fg),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: fg,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
+            ),
+            TextButton(
+              onPressed: c.refresh,
+              style: TextButton.styleFrom(foregroundColor: fg),
+              child: const Text('Reintentar'),
+            ),
+          ],
         ),
       ),
     );

@@ -42,11 +42,7 @@ void main() {
       expect(convertAmount(amount: 10, fromRateInVes: 1, toRateInVes: 0), 0);
       expect(convertAmount(amount: 10, fromRateInVes: -2, toRateInVes: 1), 0);
       expect(
-        convertAmount(
-          amount: 10,
-          fromRateInVes: double.nan,
-          toRateInVes: 1,
-        ),
+        convertAmount(amount: 10, fromRateInVes: double.nan, toRateInVes: 1),
         0,
       );
     });
