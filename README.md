@@ -1,68 +1,69 @@
 # Lukas Sync
 
-Conversor de monedas para Venezuela construido en Flutter. Muestra y permite convertir entre el bolívar (VES), el dólar y euro a tasa BCV, el USDT de Binance P2P y tasas personalizadas definidas por el usuario.
+Conversor de monedas para Venezuela construido en Flutter. Convierte entre el
+bolívar (VES), el dólar y el euro a tasa BCV, el USDT de Binance P2P y tasas
+personalizadas definidas por el usuario.
+
+Pensada para Android (es la plataforma que se prueba y distribuye). El código
+de iOS existe pero no se ha probado, y el widget es solo para Android.
 
 ## Características
 
-- Tasas oficiales del BCV (USD y EUR) y de Binance P2P (USDT) consultadas desde una API propia.
-- Tasas personalizadas: el usuario puede crear, editar, reordenar y eliminar sus propias tasas con nombre e ícono.
-- Conversor con teclado numérico personalizado: al tocar una tarjeta se vuelve la moneda activa y el resto se recalcula al instante.
-- Caché local de la última respuesta de la API para mostrar valores aún sin conexión.
-- Refresco automático configurable (15, 30 o 60 minutos) más refresco manual con pull‑to‑refresh.
-- Tema claro / oscuro / sistema, persistido entre sesiones.
-- Localización en `es_VE` (formato de números y fechas venezolano).
-- Orientación adaptativa: vertical en teléfonos, vertical y horizontal en tablets.
+- **Tasas oficiales** del BCV (USD y EUR) y USDT de Binance P2P desde la API
+  propia [`tasas-api`](https://github.com/jshvargsdev/tasas-api)
+  (contrato en [`docs/api-v1.md`](docs/api-v1.md)). Sin token: los endpoints
+  de lectura son públicos.
+- **Conversor**: la moneda activa se muestra en grande y debajo sus
+  equivalencias. Tocar una fila la vuelve activa; su botón copia el monto.
+- **Teclado numérico** propio; el monto se escribe en centavos.
+- **Tasas personalizadas** con nombre, ícono y valor de hasta 6 decimales (para
+  monedas que valen menos de 1 Bs, como el peso colombiano). Mantener
+  presionada una tasa permite copiarla o editarla.
+- **Historial BCV**: un card por publicación con dólar y euro, carga al bajar
+  y calendario para ir a una fecha. En fines de semana y feriados aplica la
+  última fecha valor anterior.
+- **Widget de pantalla de inicio** (Android, 4×1) con las tres tasas y su
+  hora. Se actualiza cuando la app descarga tasas y cada hora en segundo plano.
+- Refresco cada hora con la app abierta y al volver a ella; refresco manual
+  con el botón o deslizando hacia abajo. Caché local para funcionar sin conexión.
+- Tema claro / oscuro / sistema desde el botón de apariencia del Home.
+- Formato venezolano de números y fechas (`es_VE`).
 
 ## Requisitos
 
-- Flutter SDK con Dart `^3.11.5`.
-- Una cuenta y endpoint de la API de tasas que devuelva el formato esperado (ver más abajo).
-
-## Configuración
-
-1. Instala dependencias:
-
-   ```bash
-   flutter pub get
-   ```
-
-2. Crea el archivo `.env` en la raíz copiando el ejemplo:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Y edita los valores:
-
-   ```env
-   RATES_API_URL=https://tu-api.example.com/rates
-   RATES_API_TOKEN=tu-token-aqui
-   ```
-
-   El archivo `.env` está declarado como asset en `pubspec.yaml`, así que debe existir antes de compilar.
-
-3. (Opcional) Regenera íconos y splash si modificas `assets/icon.png`:
-
-   ```bash
-   dart run flutter_launcher_icons
-   dart run flutter_native_splash:create
-   ```
+- Flutter 3.44 (Dart `^3.11.5`). En esta máquina está en `~/fvm/default/bin`.
+- Para Android: Android SDK y JDK (el de Android Studio sirve).
 
 ## Ejecución
 
 ```bash
-flutter run                    # dispositivo conectado / emulador por defecto
-flutter run -d android         # Android
-flutter run -d ios             # iOS
+flutter pub get
+flutter run
+```
+
+La app usa por defecto la API de producción
+(`https://tasas-api-liart.vercel.app`). Para apuntar a otra:
+
+```bash
+flutter run --dart-define=RATES_API_BASE_URL=http://192.168.1.10:3000
+```
+
+## Verificación
+
+```bash
+flutter analyze
+flutter test
 ```
 
 ## Build de producción
 
 ```bash
-flutter build apk --release            # APK Android
-flutter build appbundle --release      # AAB para Play Store
-flutter build ios --release            # iOS (requiere macOS + Xcode)
+flutter build apk --release --split-per-abi
 ```
+
+Genera un APK por arquitectura en `build/app/outputs/flutter-apk/`. Para casi
+todos los teléfonos actuales sirve `app-arm64-v8a-release.apk`. Sin
+`--split-per-abi` se genera un único APK universal, unas tres veces más pesado.
 
 ## Firma
 
@@ -81,43 +82,32 @@ Huella SHA-256 del certificado de release:
 Para comprobar la firma de un APK:
 
 ```bash
-apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
-```
-
-## Formato esperado de la API
-
-El endpoint configurado en `RATES_API_URL` debe responder a `GET` con el header `Authorization: Bearer <RATES_API_TOKEN>` y devolver JSON con la siguiente estructura:
-
-```json
-{
-  "ok": true,
-  "data": {
-    "fetchedAt": "2026-05-11T12:00:00Z",
-    "bcv": {
-      "dollar": { "value": 36.50 },
-      "euro":   { "value": 39.80 }
-    },
-    "binance": { "value": 37.10 }
-  }
-}
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 ```
 
 ## Estructura del proyecto
 
 ```
 lib/
-├── main.dart                  # Inicialización, tema y configuración global
-├── constants/                 # Constantes (íconos/emojis disponibles)
-├── models/                    # Modelos (CustomRate)
-├── services/                  # AppSettings, CustomRatesStore, RateService
-├── screens/                   # HomeScreen, SettingsScreen, ReorderRatesScreen
-└── widgets/                   # CurrencyCard, AddRateCard, AddRateModal, CustomKeypad
+├── main.dart          # Arranque, tema, localización y dependencias globales
+├── constants/         # Íconos/emojis para tasas personalizadas
+├── domain/            # Lógica pura: conversión, formatos, lista de monedas
+├── models/            # Rates, CustomRate, BcvPublication
+├── services/          # API v1, RatesController, almacenamiento, widget
+├── screens/           # Home e Historial
+├── theme/             # Paleta clara/oscura y tema (AppPalette)
+└── widgets/           # Teclado, filas de moneda, formulario de tasa, etc.
+android/app/src/main/
+├── kotlin/.../RatesWidgetProvider.kt   # Widget de pantalla de inicio
+└── res/layout/rates_widget.xml         # Diseño del widget
+docs/api-v1.md         # Contrato con tasas-api
 ```
 
 ## Dependencias principales
 
 - `http` — llamadas a la API de tasas.
-- `shared_preferences` — persistencia de tema, intervalo de refresco, tasas personalizadas y caché.
-- `flutter_dotenv` — carga de variables de entorno desde `.env`.
-- `intl` — formato de números y fechas en `es_VE`.
-- `url_launcher`, `package_info_plus` — enlaces externos y datos de versión en ajustes.
+- `shared_preferences` — tema, tasas personalizadas y caché de tasas.
+- `intl` + `flutter_localizations` — formatos `es_VE` y textos del sistema en español.
+- `home_widget` — datos y actualización del widget de Android.
+- `workmanager` — descarga horaria en segundo plano para el widget.
+- `url_launcher`, `package_info_plus` — enlace a GitHub y versión en Apariencia.
