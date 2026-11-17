@@ -66,7 +66,7 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <View
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/widget_divider" />
@@ -99,7 +99,7 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <View
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/widget_divider" />
