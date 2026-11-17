@@ -26,11 +26,6 @@ class RatesWidgetProvider : HomeWidgetProvider() {
                 setTextViewText(R.id.widget_usd, widgetData.getString("widget_usd", empty))
                 setTextViewText(R.id.widget_eur, widgetData.getString("widget_eur", empty))
                 setTextViewText(R.id.widget_usdt, widgetData.getString("widget_usdt", empty))
-                setTextViewText(
-                    R.id.widget_updated,
-                    widgetData.getString("widget_updated", null)
-                        ?: context.getString(R.string.widget_empty_updated),
-                )
                 setOnClickPendingIntent(
                     R.id.widget_root,
                     HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java),

@@ -6,7 +6,6 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../domain/converter.dart';
-import '../domain/time_format.dart';
 import '../models/rates.dart';
 import 'rate_source.dart';
 
@@ -20,7 +19,6 @@ abstract final class WidgetKeys {
   static const usd = 'widget_usd';
   static const eur = 'widget_eur';
   static const usdt = 'widget_usdt';
-  static const updated = 'widget_updated';
 }
 
 bool get _isAndroid =>
@@ -31,7 +29,6 @@ Map<String, String> widgetDataFor(Rates r) => {
   WidgetKeys.usd: formatRate(r.dolarBcv),
   WidgetKeys.eur: formatRate(r.euroBcv),
   WidgetKeys.usdt: formatRate(r.usdtBinance),
-  WidgetKeys.updated: formatDateTime(r.fetchedAt),
 };
 
 /// Guarda las tasas para el widget y le pide que se redibuje.
