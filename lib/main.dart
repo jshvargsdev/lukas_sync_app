@@ -14,10 +14,7 @@ final AppSettings appSettings = AppSettings();
 final CustomRatesStore customRatesStore = CustomRatesStore();
 
 /// Se reasigna en los tests para usar una fuente de tasas falsa.
-RatesController ratesController = RatesController(
-  source: ApiRateSource(),
-  settings: appSettings,
-);
+RatesController ratesController = RatesController(source: ApiRateSource());
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

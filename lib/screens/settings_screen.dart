@@ -3,7 +3,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
-import '../services/app_settings.dart';
 import '../theme/app_theme.dart';
 import 'reorder_rates_screen.dart';
 
@@ -46,21 +45,6 @@ class SettingsScreen extends StatelessWidget {
                   ],
                   selected: {appSettings.themeMode},
                   onSelectionChanged: (s) => appSettings.setThemeMode(s.first),
-                ),
-              ),
-              const _SectionHeader('Actualizar tasas cada'),
-              _Card(
-                padding: const EdgeInsets.all(12),
-                child: SegmentedButton<int>(
-                  showSelectedIcon: false,
-                  style: _segmentStyle(p),
-                  segments: [
-                    for (final m in kRefreshIntervalChoices)
-                      ButtonSegment(value: m, label: Text('$m min')),
-                  ],
-                  selected: {appSettings.refreshIntervalMinutes},
-                  onSelectionChanged: (s) =>
-                      appSettings.setRefreshIntervalMinutes(s.first),
                 ),
               ),
               if (customRatesStore.rates.length >= 2) ...[

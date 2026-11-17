@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lukas_sync_app/services/app_settings.dart';
 import 'package:lukas_sync_app/services/rate_source.dart';
 import 'package:lukas_sync_app/services/rates_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,17 +11,15 @@ import '../helpers/fake_rate_source.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late AppSettings settings;
   late DateTime now;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    settings = AppSettings();
     now = DateTime(2026, 11, 17, 10);
   });
 
   RatesController build(RateSource source) =>
-      RatesController(source: source, settings: settings, now: () => now);
+      RatesController(source: source, now: () => now);
 
   test('al iniciar carga la caché de la v1 y luego refresca', () async {
     SharedPreferences.setMockInitialValues({
@@ -52,7 +49,6 @@ void main() {
     final fetched = [];
     final c = RatesController(
       source: source,
-      settings: settings,
       now: () => now,
       onRatesFetched: fetched.add,
     );
@@ -104,7 +100,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(source.calls, 1);
 
-    now = now.add(settings.refreshInterval);
+    now = now.add(kRefreshInterval);
     c.didChangeAppLifecycleState(AppLifecycleState.resumed);
     await Future<void>.delayed(Duration.zero);
     expect(source.calls, 2);

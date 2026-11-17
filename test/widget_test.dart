@@ -13,7 +13,7 @@ Future<void> pumpApp(WidgetTester tester, RateSource source) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 2.75;
   addTearDown(tester.view.reset);
-  ratesController = RatesController(source: source, settings: appSettings);
+  ratesController = RatesController(source: source);
   await tester.pumpWidget(const LukasSyncApp());
   await tester.runAsync(ratesController.refresh);
   await tester.pump();

@@ -5,10 +5,12 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/rates.dart';
-import 'app_settings.dart';
 import 'rate_source.dart';
 
 const _kRatesCacheKey = '@lukas_rates_cache';
+
+/// Cada cuánto se refrescan las tasas con la app abierta.
+const Duration kRefreshInterval = Duration(hours: 1);
 
 /// A partir de cuánto tiempo se consideran viejos los datos mostrados.
 const Duration kStaleAfter = Duration(hours: 2);
@@ -16,10 +18,9 @@ const Duration kStaleAfter = Duration(hours: 2);
 /// Estado de las tasas oficiales: carga, caché, refresco periódico y errores.
 ///
 /// El refresco periódico se pausa con la app en segundo plano y, al volver,
-/// se refresca de inmediato si ya pasó el intervalo configurado.
+/// se refresca de inmediato si ya pasó [kRefreshInterval].
 class RatesController extends ChangeNotifier with WidgetsBindingObserver {
   final RateSource _source;
-  final AppSettings _settings;
   final DateTime Function() _now;
 
   /// Se llama cada vez que llegan tasas nuevas desde la red.
@@ -27,11 +28,9 @@ class RatesController extends ChangeNotifier with WidgetsBindingObserver {
 
   RatesController({
     required RateSource source,
-    required AppSettings settings,
     DateTime Function()? now,
     this.onRatesFetched,
   }) : _source = source,
-       _settings = settings,
        _now = now ?? DateTime.now;
 
   Rates? _rates;
@@ -58,7 +57,6 @@ class RatesController extends ChangeNotifier with WidgetsBindingObserver {
     if (_started) return;
     _started = true;
     WidgetsBinding.instance.addObserver(this);
-    _settings.addListener(_scheduleTimer);
     await _loadCache();
     _scheduleTimer();
     await refresh();
@@ -91,8 +89,7 @@ class RatesController extends ChangeNotifier with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         final last = _lastAttempt;
-        if (last == null ||
-            _now().difference(last) >= _settings.refreshInterval) {
+        if (last == null || _now().difference(last) >= kRefreshInterval) {
           refresh();
         }
         _scheduleTimer();
@@ -108,7 +105,7 @@ class RatesController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _scheduleTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(_settings.refreshInterval, (_) => refresh());
+    _timer = Timer.periodic(kRefreshInterval, (_) => refresh());
   }
 
   Future<void> _loadCache() async {
@@ -139,10 +136,7 @@ class RatesController extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _timer?.cancel();
-    if (_started) {
-      WidgetsBinding.instance.removeObserver(this);
-      _settings.removeListener(_scheduleTimer);
-    }
+    if (_started) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }
