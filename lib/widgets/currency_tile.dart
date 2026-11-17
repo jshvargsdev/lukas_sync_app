@@ -62,6 +62,7 @@ class CurrencyTile extends StatelessWidget {
             CurrencyAvatar(icon: icon),
             const SizedBox(width: 12),
             Expanded(
+              flex: 5,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -91,17 +92,21 @@ class CurrencyTile extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
+              flex: 4,
+              child: Align(
                 alignment: Alignment.centerRight,
-                child: Text(
-                  amount,
-                  maxLines: 1,
-                  style: TextStyle(
-                    color: p.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: kTabularFigures,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    amount,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: p.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: kTabularFigures,
+                    ),
                   ),
                 ),
               ),
